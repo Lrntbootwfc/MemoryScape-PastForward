@@ -1,0 +1,9 @@
+streamlit==1.36.0
+bcrypt==4.2.0
+pillow==10.4.0
+plotly==5.23.0
+# Optional (uncomment to use)
+# transformers==4.41.2
+# torch==2.3.1
+# openai==1.41.0
+

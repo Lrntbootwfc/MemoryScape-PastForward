@@ -1,0 +1,8 @@
+[theme]
+base="light"
+primaryColor="#2F855A"      # garden green
+backgroundColor="#FAFAFA"
+secondaryBackgroundColor="#F0FFF4"
+textColor="#0F172A"
+font="sans serif"
+
