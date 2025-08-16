@@ -6,8 +6,6 @@ from utils import get_memory_state, is_locked
 from emotions import PLANT_BY_EMOTION
 from datetime import datetime, timezone
 
-
-
 PLANT_EMOJIS = {
     "happy": "🌻", "romantic": "🌹", "sad": "🌿", "calm": "🌲",
     "angry": "🌵", "nostalgic": "🌼", "excited": "🌷", "proud": "🌺"
@@ -44,7 +42,6 @@ def memory_card(m: Dict):
         f"Emotion: {m.get('emotion', 'Unknown').title()} • {status}"
     )
 
-
     if m.get("media_path") and not lock:
         mt = m.get("media_type")
         p = m["media_path"]
@@ -66,9 +63,11 @@ def memory_card(m: Dict):
         unsafe_allow_html=True
     )
 
-def garden_grid(memories: List[Dict], columns: int = 4):
-    st.subheader("🌳 Garden View")
-    counters(memories)
+def garden_grid(memories: List[Dict], show_header: bool = True, columns: int = 4):
+    if show_header:
+        st.subheader("🌳 Garden View")
+        counters(memories)
+    
     if not memories:
         st.info("No memories yet. Plant your first memory from the sidebar.")
         return
@@ -113,7 +112,5 @@ def galaxy_view(memories: List[Dict]):
         height=500, margin=dict(l=0, r=0, b=0, t=0),
         scene=dict(xaxis_title='Row', yaxis_title='Col', zaxis_title='Layer')
     )
-    
-    
     
     st.plotly_chart(fig, use_container_width=True)

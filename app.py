@@ -105,6 +105,15 @@ with st.sidebar:
                 st.success(f"Planted as {plant} ({label}).")
                 st.rerun()
 
+
+
+
+
+# --- Helper: Set Background for each view ---
+def set_background(view: str):
+    # No background for main page - backgrounds will be on separate pages
+    pass
+
 # --- Main Area ---
 st.title("🌼 MemoryScape: PastForward Edition")
 
@@ -121,16 +130,37 @@ else:
     elif theme == "Night":
         st.markdown("<style>.stApp { background: linear-gradient(180deg,#0f172a,#1f2937); color:#e5e7eb; }</style>", unsafe_allow_html=True)
 
-    view = st.segmented_control("View", options=["Garden","Galaxy"])
-
+    view = st.segmented_control("View", options=["Home","Garden","Galaxy"])
+    
+    # No background setting here - backgrounds will be on separate pages
     memories = list_memories(user["id"])
 
     if view == "Garden":
         ui.garden_grid(memories, columns=4)
-    else:
+    elif view == "Galaxy":
         ui.counters(memories)
         ui.galaxy_view(memories)
-
+    else:  # Home view
+        st.subheader("🏠 Welcome to Your Memory Garden")
+        st.markdown("""
+        This is your personal space for planting and nurturing memories. 
+        Choose a view from above to explore your memories in different ways:
+        
+        - **Home**: Your cozy space to start your journey
+        - **Garden**: A grid view of all your planted memories
+        - **Galaxy**: A 3D visualization of your memory universe
+        """)
+        ui.counters(memories)
+        
+        if memories:
+            st.subheader("🌱 Recent Memories")
+            recent_memories = memories[:3]  # Show last 3 memories
+            for memory in recent_memories:
+                with st.expander(f"📝 {memory.get('title', 'Untitled')}", expanded=False):
+                    ui.memory_card(memory)
+        else:
+            st.info("No memories yet. Plant your first memory from the sidebar! 🌱")
+    
     st.divider()
-    st.caption("Tip: Emotion engine is rule-based by default. Set EMOTION_BACKEND=hf or openai in deployment to upgrade.")
+    st.caption("💡 Tip: Emotion engine is rule-based by default. Set EMOTION_BACKEND=hf or openai in deployment to upgrade.")
 
