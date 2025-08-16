@@ -13,4 +13,6 @@ class Memory:
     created_at: datetime
     media_path: Optional[str]
     media_type: Optional[str]  # 'image','audio','video','text','other'
-
+    state: Optional[str] = None  # 'bud', 'bloom', 'fruit'
+    size: Optional[int] = None   # size in pixels (or scaling factor)
+    group_id: Optional[str] = None  # for related memories

@@ -13,6 +13,21 @@ from streamlit_cookies_manager import EncryptedCookieManager
 st.set_page_config(page_title="MemoryScape: PastForward", page_icon="🌻", layout="wide")
 ensure_db()
 
+cookies = EncryptedCookieManager(
+    prefix="memscape_",  # unique key prefix for app
+    password="super_secret_key_change_me"  
+)
+
+if not cookies.ready():  # NEW
+    st.stop() 
+
+if "user" not in st.session_state and cookies.get("logged_in") == "true": 
+    st.session_state.user = {
+        "id": cookies.get("user_id"),
+        "name": cookies.get("user_name"),
+        "email": cookies.get("user_email")
+    }
+
 # --- Sidebar: Auth or Actions ---
 with st.sidebar:
     st.title("MemoryScape 🌿")
@@ -24,6 +39,11 @@ with st.sidebar:
             user = login(email, pwd)
             if user:
                 st.session_state.user = user
+                cookies["logged_in"] = "true"
+                cookies["user_id"] = str(user["id"])
+                cookies["user_name"] = user["name"]
+                cookies["user_email"] = user["email"]
+                cookies.save()
                 st.rerun()
 
         st.divider()
@@ -42,6 +62,12 @@ with st.sidebar:
         st.markdown(f"**Logged in as:** {user['name']} ({user['email']})")
         if st.button("Logout"):
             logout()
+            cookies["logged_in"] = "false"  
+            cookies["user_id"] = ""  
+            cookies["user_name"] = "" 
+            cookies["user_email"] = ""  
+            cookies.save()  
+            st.session_state.clear()
             st.rerun()
 
         st.divider()
