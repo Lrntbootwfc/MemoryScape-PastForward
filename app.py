@@ -10,7 +10,7 @@ from utils import iso_or_none, is_locked
 import ui
 from streamlit_cookies_manager import EncryptedCookieManager  
 
-st.set_page_config(page_title="MemoryScape: PastForward", page_icon="🌻", layout="wide")
+st.set_page_config(page_title="MemoryScape:", page_icon="🌻", layout="wide")
 ensure_db()
 
 cookies = EncryptedCookieManager(
@@ -130,13 +130,17 @@ else:
     elif theme == "Night":
         st.markdown("<style>.stApp { background: linear-gradient(180deg,#0f172a,#1f2937); color:#e5e7eb; }</style>", unsafe_allow_html=True)
 
-    view = st.segmented_control("View", options=["Home","Garden","Galaxy"])
+    view = st.segmented_control("View", options=["Home","Garden","Enhanced Garden","Galaxy"])
     
     # No background setting here - backgrounds will be on separate pages
     memories = list_memories(user["id"])
 
     if view == "Garden":
         ui.garden_grid(memories, columns=4)
+    elif view == "Enhanced Garden":
+        # Import and use the enhanced garden
+        from enhanced_garden_page import *
+        # The enhanced garden page will handle everything
     elif view == "Galaxy":
         ui.counters(memories)
         ui.galaxy_view(memories)
