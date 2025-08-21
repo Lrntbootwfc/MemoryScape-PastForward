@@ -8,6 +8,7 @@ def ensure_db():
 def signup(email: str, name: str, password: str) -> bool:
     pw_hash = bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt())
     ok, err = create_user(email, name, pw_hash)
+    print("SIGNUP DEBUG:", email, name, ok, err)  
     if not ok:
         st.error(err)
     return ok

@@ -1,6 +1,7 @@
 import os
 from datetime import datetime
 import streamlit as st
+import streamlit.components.v1 as components 
 
 from auth import ensure_db, signup, login, logout
 from db import list_memories, insert_memory
@@ -18,7 +19,7 @@ cookies = EncryptedCookieManager(
     password="super_secret_key_change_me"  
 )
 
-if not cookies.ready():  # NEW
+if not cookies.ready(): 
     st.stop() 
 
 if "user" not in st.session_state and cookies.get("logged_in") == "true": 
@@ -135,12 +136,31 @@ else:
     # No background setting here - backgrounds will be on separate pages
     memories = list_memories(user["id"])
 
-    if view == "Garden":
+    if view == "Enhanced Garden":
+        # Check if the build folder exists
+        react_build_path = r"D:\.vscode\memoryscapegarden\memoryscape-garden\Memory_Garden\build"
+
+        # react_build_path = os.path.join(os.path.dirname(__file__), "..", "Memory_Garden", "build")
+        if not os.path.exists(react_build_path):
+            st.error("React build folder not found! Please run 'npm run build' in your React project directory first.")
+        else:
+            # Read the index.html file
+            with open(os.path.join(react_build_path, "index.html"), "r") as f:
+                html_code = f.read()
+
+            # IMPORTANT: We pass the user's ID to the React app via a global JavaScript variable.
+            html_code = html_code.replace(
+                "<head>",
+                f"<head><script>window.memoryscape_user_id = {user['id']};</script>"
+            )
+
+            # Embed the HTML component
+            # NEW: The key is used to force a refresh when the number of memories changes
+            components.html(html_code, height=600, key=f"garden-{len(memories)}", scrolling=False)
+
+    elif view == "Garden":
         ui.garden_grid(memories, columns=4)
-    elif view == "Enhanced Garden":
-        # Import and use the enhanced garden
-        from enhanced_garden_page import *
-        # The enhanced garden page will handle everything
+        
     elif view == "Galaxy":
         ui.counters(memories)
         ui.galaxy_view(memories)
