@@ -41,7 +41,8 @@ async def save_upload(user_id: int, file: UploadFile) -> Tuple[str, str]:
     
     if media_type == "image":
         try:
-            Image.open(disk_path).verify()
+         with Image.open(disk_path)as img:
+            img.load()
         except Exception:
             os.remove(disk_path)
             raise ValueError("Invalid image file.")

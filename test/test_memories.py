@@ -11,8 +11,8 @@ TEST_VIDEO_PATH = "test_video.mp4"
 # --- Create dummy files for upload ---
 if not os.path.exists(TEST_IMAGE_PATH):
     # CORRECTED: Create a valid, empty image file using Pillow
-    img = Image.new('RGB', (1, 1))
-    img.save(TEST_IMAGE_PATH)
+    img = Image.new('RGB', (2,2),color=(255,255,255))
+    img.save(TEST_IMAGE_PATH,format='JPEG' , quality=95)
 if not os.path.exists(TEST_VIDEO_PATH):
     # CORRECTED: Create a valid, empty text file for video.
     # We will not validate video, so this is fine.

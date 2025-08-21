@@ -4,16 +4,21 @@ from datetime import datetime
 from typing import List, Optional
 from io import BytesIO
 
+import random 
+
 from fastapi import FastAPI, UploadFile, File, Form, HTTPException, Depends, Request 
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
+from fastapi.responses import PlainTextResponse
+from fastapi.routing import APIRouter
 
 # Reuse your existing app logic
 from auth import ensure_db, login, signup
 from db import list_memories, insert_memory
 from storage import save_upload
 from emotions import classify
+
 
 # ---------- Config ----------
 API_TITLE = "MemoryScape API"
@@ -25,6 +30,7 @@ MEDIA_ROOT = os.getenv("MEDIA_ROOT", "uploads")  # where storage.save_upload put
 
 # ---------- App ----------
 app = FastAPI(title=API_TITLE, version=API_VERSION)
+api_router = APIRouter(prefix="/api")
 
 app.add_middleware(
     CORSMiddleware,
@@ -40,6 +46,12 @@ ensure_db()
 # Serve uploaded media
 if os.path.isdir(MEDIA_ROOT):
     app.mount("/media", StaticFiles(directory=MEDIA_ROOT), name="media")
+
+react_dist_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'Memory_Garden', 'dist'))
+if os.path.isdir(react_dist_path):
+    app.mount("/media", StaticFiles(directory=MEDIA_ROOT), name="media")
+
+
 
 # ---------- Schemas ----------
 class UserOut(BaseModel):
@@ -57,6 +69,7 @@ class MemoryOut(BaseModel):
     created_at: Optional[str] =None
     media_path: Optional[str] = None
     media_type: Optional[str] = None
+    position: Optional[List[float]] = None
 
 class SearchQuery(BaseModel):
     user_id: int
@@ -82,7 +95,11 @@ def normalize_date(s: Optional[str]) -> Optional[datetime]:
 def get_media_url(request: Request, relative_path: str) -> str:
     if not relative_path:
         return None
-    return str(request.url.replace(path=f"/media/{relative_path}"))
+    # Build clean absolute URL without copying request query params
+    base = str(request.base_url).rstrip("/")
+    # Normalize to forward slashes for URLs
+    norm = str(relative_path).replace("\\", "/")
+    return f"{base}/media/{norm}"
 
 # def to_out(row,request: Request) -> MemoryOut:
 #     out = MemoryOut(**row)
@@ -99,19 +116,22 @@ def to_out(row,request: Request, user_id: Optional[int] = None) -> MemoryOut:
         out.media_path = get_media_url(request, out.media_path)
     return out
 
+def generate_random_position() -> Tuple[float, float, float]:
+    return [random.uniform(-20, 20), 0, random.uniform(-20, 20)]
+
 # ---------- Routes ----------
-@app.get("/api/health")
+@api_router.get("/health")
 def health():
     return {"ok": True, "service": API_TITLE, "version": API_VERSION}
 
-@app.post("/api/login", response_model=UserOut)
+@api_router.post("/login", response_model=UserOut)
 def api_login(email: str = Form(...), password: str = Form(...)):
     user = login(email, password)
     if not user:
         raise HTTPException(status_code=401, detail="Invalid credentials")
     return user
 
-@app.post("/api/signup", response_model=UserOut)
+@api_router.post("/signup", response_model=UserOut)
 def api_signup(email: str = Form(...), name: str = Form(...), password: str = Form(...)):
     print("Received signup:", email, name, password)
     created = signup(email, name, password)
@@ -121,12 +141,25 @@ def api_signup(email: str = Form(...), name: str = Form(...), password: str = Fo
     user = login(email, password)
     return user
 
-@app.get("/api/memories", response_model=List[MemoryOut])
+
+
+@app.get("/memorygarden", response_class=PlainTextResponse)
+def memorygarden_landing():
+    return "Memory Garden endpoint is reachable. Use the Streamlit app or the React UI."
+
+
+@api_router.get("/memories", response_model=List[MemoryOut])
 def api_list_memories(user_id: int, request: Request):
     rows = list_memories(user_id)
+    if not rows:
+        return []
+    
+    # NEW: Generate a random position for each memory
+    for r in rows:
+        r['position'] = generate_random_position()
     return [to_out(r, request,user_id=user_id) for r in rows]
 
-@app.get("/api/memories/search", response_model=List[MemoryOut])
+@api_router.get("/memories/search", response_model=List[MemoryOut])
 def api_search_memories(
     request: Request,
     user_id: int,
@@ -137,6 +170,12 @@ def api_search_memories(
     
 ):
     rows = list_memories(user_id)
+    if not rows:
+        return []
+        
+    # NEW: Generate a random position for each memory
+    for r in rows:
+        r['position'] = generate_random_position()
 
     # simple in-Python filters; switch to SQL WHERE if needed
     if q:
@@ -164,7 +203,7 @@ def api_search_memories(
         rows = tmp
     return [to_out(r,request, user_id=user_id) for r in rows]
 
-@app.post("/api/memories", response_model=MemoryOut)
+@api_router.post("/memories", response_model=MemoryOut)
 async def api_create_memory(
     request: Request,
     user_id: int = Form(...),
@@ -186,7 +225,7 @@ async def api_create_memory(
         try:
             # media_path, media_type = await save_upload(user_id, file)
             # CORRECTED: Call save_upload synchronously with the content
-            media_path, media_type = save_upload(user_id, file)
+            media_path, media_type = await save_upload(user_id,file)
         except Exception as e:
             raise HTTPException(status_code=400, detail=f"Upload failed: {e}")
 
@@ -205,4 +244,6 @@ async def api_create_memory(
     created = next((r for r in rows if r["id"] == mem_id), None)
     if not created:
         raise HTTPException(status_code=500, detail="Created but not found")
-    return to_out(created, request)
+    return to_out(created, request,user_id=user_id)
+    
+app.include_router(api_router)

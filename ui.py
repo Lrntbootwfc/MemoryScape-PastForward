@@ -42,18 +42,50 @@ def memory_card(m: Dict):
         f"Emotion: {m.get('emotion', 'Unknown').title()} • {status}"
     )
 
-    if m.get("media_path") and not lock:
-        mt = m.get("media_type")
-        p = m["media_path"]
-        if mt == "image":
-            st.image(p, use_container_width=True)
-        elif mt == "audio":
-            st.audio(p)
-        elif mt == "video":
-            st.video(p)
+    media_path = m.get("media_path")
+    if media_path:
+        mt = (m.get("media_type") or "").lower()
+
+    # 1) If API already returned an absolute URL, use it directly
+        if isinstance(media_path, str) and (media_path.startswith("http://") or media_path.startswith("https://")):
+            src = media_path
+        else:
+        # 2) Resolve filesystem paths robustly
+            media_root = os.getenv("MEDIA_ROOT", "uploads")
+            norm = str(media_path).replace("\\", "/")
+
+            candidates = []
+
+        # If DB path is like "user_2/filename.jpg" (uploads root)
+            candidates.append(os.path.abspath(os.path.join(media_root, norm)))
+
+        # If DB mistakenly stored "uploads/..." already
+            if norm.startswith("uploads/"):
+                candidates.append(os.path.abspath(norm))
+
+        # If older rows used "storage/..." under project
+            if norm.startswith("storage/"):
+                candidates.append(os.path.abspath(os.path.join(os.path.dirname(__file__), norm)))
+
+        # Last resort: treat as relative to project root
+            candidates.append(os.path.abspath(os.path.join(os.path.dirname(__file__), norm)))
+
+            src_path = next((p for p in candidates if os.path.exists(p)), None)
+        # If nothing exists, default to first candidate (better error than bad join)
+            src = src_path or candidates[0]
+
+        if "image" in mt:
+            st.image(src, use_container_width=True)
+        elif "audio" in mt:
+            st.audio(src)
+        elif "video" in mt:
+            st.video(src)
         elif mt == "text":
-            with open(p, "rb") as f:
-                st.download_button("Download file", data=f, file_name=os.path.basename(p))
+        # For text files, ensure we open only local paths
+            if isinstance(src, str) and not src.startswith("http"):
+                with open(src, "rb") as f:
+                    st.download_button("Download file", data=f, file_name=os.path.basename(str(src)))
+
 
     st.write(m.get("description") or "")
 
