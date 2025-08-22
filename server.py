@@ -65,6 +65,7 @@ class MemoryOut(BaseModel):
     media_path: Optional[str] = None
     media_type: Optional[str] = None
     position: Optional[List[float]] = None
+    memory: Optional[dict] = None 
 
 class SearchQuery(BaseModel):
     user_id: int
@@ -93,6 +94,16 @@ def get_media_url(request: Request, relative_path: str) -> str:
     return f"{base}/media/{norm}"
 
 def to_out(row,request: Request) -> MemoryOut:
+    media_path = row.get("media_path")
+    media_type = row.get("media_type")
+    
+    memory_info = None
+    if media_path and media_type:
+        full_url = get_media_url(request, media_path)
+        memory_info = {"source": full_url, "type": media_type}
+    
+    
+    row['memory'] = memory_info
     out = MemoryOut(**row)
     if out.media_path:
         out.media_path = get_media_url(request, out.media_path)
