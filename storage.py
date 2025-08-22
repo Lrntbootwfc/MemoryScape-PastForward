@@ -10,7 +10,7 @@ from fastapi import UploadFile
 import aiofiles
 
 def ensure_user_dir(user_id: int):
-    media_root = os.getenv("MEDIA_ROOT", "uploads")
+    media_root = "uploads"
     user_dir = os.path.join(media_root, f"user_{user_id}")
     os.makedirs(user_dir, exist_ok=True)
     return user_dir
@@ -41,8 +41,51 @@ async def save_upload(user_id: int, file: UploadFile) -> Tuple[str, str]:
     
     if media_type == "image":
         try:
-         with Image.open(disk_path)as img:
-            img.load()
+            with Image.open(disk_path)as img:
+                img.load()
+        except Exception:
+            os.remove(disk_path)
+            raise ValueError("Invalid image file.")
+            
+    relative_path = os.path.join(f"user_{user_id}", safe_name)
+    return relative_path, media_type
+
+# backend/storage.py
+
+import os
+import uuid
+from typing import Tuple, IO
+from PIL import Image
+from io import BytesIO
+
+def ensure_user_dir(user_id: int):
+    media_root = os.getenv("MEDIA_ROOT", "uploads")
+    user_dir = os.path.join(media_root, f"user_{user_id}")
+    os.makedirs(user_dir, exist_ok=True)
+    return user_dir
+
+def infer_media_type(filename: str) -> str:
+    if filename.lower().endswith(('.jpg', '.jpeg', '.png', '.gif')):
+        return "image"
+    if filename.lower().endswith(('.mp4', '.mov', '.avi')):
+        return "video"
+    return "other"
+
+def save_upload_sync(user_id: int, content: bytes, filename: str) -> Tuple[str, str]:
+    """Saves a file from its content and returns its path and type."""
+    user_dir = ensure_user_dir(user_id)
+    uid = str(uuid.uuid4())
+    safe_name = f"{uid}_{filename.replace(' ','_')}"
+    disk_path = os.path.join(user_dir, safe_name)
+    
+    with open(disk_path, "wb") as f:
+        f.write(content)
+
+    media_type = infer_media_type(filename)
+    
+    if media_type == "image":
+        try:
+            Image.open(disk_path).verify()
         except Exception:
             os.remove(disk_path)
             raise ValueError("Invalid image file.")

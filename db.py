@@ -1,3 +1,5 @@
+# db.py
+
 import os, sqlite3
 from datetime import datetime
 from typing import Optional, Tuple, List, Dict
@@ -66,15 +68,15 @@ def insert_memory(user_id: int, title: str, desc: str, emotion: str,unlock_at_is
 def list_memories(user_id: int) -> List[Dict]:
     with get_conn() as conn:
         cur = conn.execute("""
-            SELECT id,title,description,emotion,unlock_at,created_at,media_path,media_type
+            SELECT id, user_id, title, description, emotion, unlock_at, created_at, media_path, media_type
             FROM memories WHERE user_id=? ORDER BY created_at DESC
         """, (user_id,))
         rows = cur.fetchall()
+    
     data = []
     for r in rows:
         data.append({
-            "id": r[0], "title": r[1], "description": r[2], "emotion": r[3],
-            "unlock_at": r[4], "created_at": r[5], "media_path": r[6], "media_type": r[7]
+            "id": r[0], "user_id": r[1], "title": r[2], "description": r[3], "emotion": r[4],
+            "unlock_at": r[5], "created_at": r[6], "media_path": r[7], "media_type": r[8]
         })
     return data
-

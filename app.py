@@ -1,11 +1,12 @@
 import os
 from datetime import datetime
 import streamlit as st
-import streamlit.components.v1 as components 
+import streamlit.components.v1 as components
+import requests 
 
 from auth import ensure_db, signup, login, logout
 from db import list_memories, insert_memory
-from storage import save_upload
+from storage import save_upload_sync
 from emotions import classify
 from utils import iso_or_none, is_locked
 import ui
@@ -21,6 +22,29 @@ cookies = EncryptedCookieManager(
 
 if not cookies.ready(): 
     st.stop() 
+
+
+
+
+
+def fetch_memories_from_api(user_id: int, api_base: str = "http://127.0.0.1:8000/api"):
+    """Fetch memories from FastAPI server with proper URLs"""
+    try:
+        response = requests.get(f"{api_base}/memories", params={"user_id": user_id})
+        if response.status_code == 200:
+            return response.json()
+        else:
+            st.error(f"Failed to fetch memories: {response.status_code}")
+            return []
+    except requests.exceptions.RequestException as e:
+        st.error(f"Connection error: {e}")
+        return []
+
+# Then replace this line in your main code:
+# memories = list_memories(user["id"])
+# With:
+
+
 
 if "user" not in st.session_state and cookies.get("logged_in") == "true": 
     st.session_state.user = {
@@ -61,14 +85,20 @@ with st.sidebar:
     else:
         user = st.session_state.user
         st.markdown(f"**Logged in as:** {user['name']} ({user['email']})")
+    # The FINAL, SIMPLE, AND CORRECT code
         if st.button("Logout"):
-            logout()
-            cookies["logged_in"] = "false"  
-            cookies["user_id"] = ""  
-            cookies["user_name"] = "" 
-            cookies["user_email"] = ""  
-            cookies.save()  
-            st.session_state.clear()
+    # Clear the user from the session state
+            if "user" in st.session_state:
+                del st.session_state.user
+
+    # Clear all the cookies
+            cookies["logged_in"] = "false"
+            cookies["user_id"] = ""
+            cookies["user_name"] = ""
+            cookies["user_email"] = ""
+            cookies.save()
+    
+    # Rerun the app just once to show the login form
             st.rerun()
 
         st.divider()
@@ -88,7 +118,7 @@ with st.sidebar:
                 media_path, media_type = (None, None)
                 try:
                     if file is not None:
-                        media_path, media_type = save_upload(user["id"], file)
+                        media_path, media_type = save_upload_sync(user["id"], file)
                 except Exception as e:
                     st.error(f"Upload failed: {e}")
                     media_path, media_type = (None, None)
@@ -134,7 +164,7 @@ else:
     view = st.segmented_control("View", options=["Home","Garden","Enhanced Garden","Galaxy"])
     
     # No background setting here - backgrounds will be on separate pages
-    memories = list_memories(user["id"])
+    memories = fetch_memories_from_api(user["id"])
 
     if view == "Enhanced Garden":
         st.subheader("Your 3D Memory Garden")

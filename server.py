@@ -1,11 +1,11 @@
 # backend/server.py
 import os
 from datetime import datetime
-from typing import List, Optional
+from typing import List, Optional,Tuple
 from io import BytesIO
-
 import random 
-
+from concurrent.futures import ThreadPoolExecutor 
+import asyncio
 from fastapi import FastAPI, UploadFile, File, Form, HTTPException, Depends, Request 
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
@@ -13,24 +13,23 @@ from pydantic import BaseModel
 from fastapi.responses import PlainTextResponse
 from fastapi.routing import APIRouter
 
-# Reuse your existing app logic
 from auth import ensure_db, login, signup
 from db import list_memories, insert_memory
-from storage import save_upload
+from storage import save_upload_sync
 from emotions import classify
 
 
 # ---------- Config ----------
 API_TITLE = "MemoryScape API"
 API_VERSION = "0.1.0"
-
-# In dev allow everything; in prod restrict this!
 CORS_ORIGINS = os.getenv("CORS_ORIGINS", "*").split(",")
-MEDIA_ROOT = os.getenv("MEDIA_ROOT", "uploads")  # where storage.save_upload puts files
+MEDIA_ROOT = os.getenv("MEDIA_ROOT", "uploads")   # where storage.save_upload puts files
 
 # ---------- App ----------
 app = FastAPI(title=API_TITLE, version=API_VERSION)
 api_router = APIRouter(prefix="/api")
+
+executor = ThreadPoolExecutor(max_workers=5)
 
 app.add_middleware(
     CORSMiddleware,
@@ -40,18 +39,14 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Make sure DB exists
 ensure_db()
 
-# Serve uploaded media
 if os.path.isdir(MEDIA_ROOT):
     app.mount("/media", StaticFiles(directory=MEDIA_ROOT), name="media")
 
 react_dist_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'Memory_Garden', 'dist'))
 if os.path.isdir(react_dist_path):
-    app.mount("/media", StaticFiles(directory=MEDIA_ROOT), name="media")
-
-
+    app.mount("/", StaticFiles(directory=react_dist_path, html=True), name="react_app")
 
 # ---------- Schemas ----------
 class UserOut(BaseModel):
@@ -83,11 +78,9 @@ def normalize_date(s: Optional[str]) -> Optional[datetime]:
     if not s:
         return None
     try:
-        # try full ISO
         return datetime.fromisoformat(s)
     except Exception:
         try:
-            # try yyyy-mm-dd
             return datetime.strptime(s, "%Y-%m-%d")
         except Exception:
             return None
@@ -95,23 +88,12 @@ def normalize_date(s: Optional[str]) -> Optional[datetime]:
 def get_media_url(request: Request, relative_path: str) -> str:
     if not relative_path:
         return None
-    # Build clean absolute URL without copying request query params
     base = str(request.base_url).rstrip("/")
-    # Normalize to forward slashes for URLs
     norm = str(relative_path).replace("\\", "/")
     return f"{base}/media/{norm}"
 
-# def to_out(row,request: Request) -> MemoryOut:
-#     out = MemoryOut(**row)
-#     if out.media_path:
-#         out.media_path = get_media_url(request, out.media_path)
-#     return out
-
-def to_out(row,request: Request, user_id: Optional[int] = None) -> MemoryOut:
-    data = dict(row)
-    if user_id is not None and "user_id" not in data:
-        data["user_id"] = user_id
-    out = MemoryOut(**data)
+def to_out(row,request: Request) -> MemoryOut:
+    out = MemoryOut(**row)
     if out.media_path:
         out.media_path = get_media_url(request, out.media_path)
     return out
@@ -137,16 +119,12 @@ def api_signup(email: str = Form(...), name: str = Form(...), password: str = Fo
     created = signup(email, name, password)
     if not created:
         raise HTTPException(status_code=400, detail="Signup failed")
-    # Auto-login after signup (optional)
     user = login(email, password)
     return user
 
-
-
-@app.get("/memorygarden", response_class=PlainTextResponse)
-def memorygarden_landing():
-    return "Memory Garden endpoint is reachable. Use the Streamlit app or the React UI."
-
+# @app.get("/memorygarden", response_class=PlainTextResponse)
+# def memorygarden_landing():
+#     return "Memory Garden endpoint is reachable. Use the Streamlit app or the React UI."
 
 @api_router.get("/memories", response_model=List[MemoryOut])
 def api_list_memories(user_id: int, request: Request):
@@ -154,10 +132,9 @@ def api_list_memories(user_id: int, request: Request):
     if not rows:
         return []
     
-    # NEW: Generate a random position for each memory
     for r in rows:
         r['position'] = generate_random_position()
-    return [to_out(r, request,user_id=user_id) for r in rows]
+    return [to_out(r, request) for r in rows]
 
 @api_router.get("/memories/search", response_model=List[MemoryOut])
 def api_search_memories(
@@ -172,12 +149,9 @@ def api_search_memories(
     rows = list_memories(user_id)
     if not rows:
         return []
-        
-    # NEW: Generate a random position for each memory
     for r in rows:
         r['position'] = generate_random_position()
 
-    # simple in-Python filters; switch to SQL WHERE if needed
     if q:
         ql = q.lower()
         rows = [r for r in rows if ql in (f"{r.get('title','')}{r.get('description','')}").lower()]
@@ -201,7 +175,7 @@ def api_search_memories(
             if ok:
                 tmp.append(r)
         rows = tmp
-    return [to_out(r,request, user_id=user_id) for r in rows]
+    return [to_out(r,request) for r in rows]
 
 @api_router.post("/memories", response_model=MemoryOut)
 async def api_create_memory(
@@ -214,7 +188,6 @@ async def api_create_memory(
     file: Optional[UploadFile] = File(None),
     
 ):
-    # classify if emotion not provided
     if not emotion:
         label, _plant = classify(f"{title}\n{desc or ''}")
         emotion = label
@@ -223,9 +196,11 @@ async def api_create_memory(
     if file is not None:
 
         try:
-            # media_path, media_type = await save_upload(user_id, file)
-            # CORRECTED: Call save_upload synchronously with the content
-            media_path, media_type = await save_upload(user_id,file)
+            content = await file.read()
+            media_path, media_type = await asyncio.get_event_loop().run_in_executor(
+                executor, save_upload_sync, user_id, content, file.filename
+            # media_path, media_type = await save_upload(user_id,file)
+            )
         except Exception as e:
             raise HTTPException(status_code=400, detail=f"Upload failed: {e}")
 
@@ -238,12 +213,10 @@ async def api_create_memory(
         media_path=media_path,
         media_type=media_type,
     )
-
-    # Return the created memory
     rows = list_memories(user_id)
     created = next((r for r in rows if r["id"] == mem_id), None)
     if not created:
         raise HTTPException(status_code=500, detail="Created but not found")
-    return to_out(created, request,user_id=user_id)
+    return to_out(created, request)
     
 app.include_router(api_router)

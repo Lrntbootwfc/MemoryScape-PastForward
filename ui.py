@@ -44,47 +44,18 @@ def memory_card(m: Dict):
 
     media_path = m.get("media_path")
     if media_path:
-        mt = (m.get("media_type") or "").lower()
-
-    # 1) If API already returned an absolute URL, use it directly
-        if isinstance(media_path, str) and (media_path.startswith("http://") or media_path.startswith("https://")):
-            src = media_path
-        else:
-        # 2) Resolve filesystem paths robustly
-            media_root = os.getenv("MEDIA_ROOT", "uploads")
-            norm = str(media_path).replace("\\", "/")
-
-            candidates = []
-
-        # If DB path is like "user_2/filename.jpg" (uploads root)
-            candidates.append(os.path.abspath(os.path.join(media_root, norm)))
-
-        # If DB mistakenly stored "uploads/..." already
-            if norm.startswith("uploads/"):
-                candidates.append(os.path.abspath(norm))
-
-        # If older rows used "storage/..." under project
-            if norm.startswith("storage/"):
-                candidates.append(os.path.abspath(os.path.join(os.path.dirname(__file__), norm)))
-
-        # Last resort: treat as relative to project root
-            candidates.append(os.path.abspath(os.path.join(os.path.dirname(__file__), norm)))
-
-            src_path = next((p for p in candidates if os.path.exists(p)), None)
-        # If nothing exists, default to first candidate (better error than bad join)
-            src = src_path or candidates[0]
-
+        # CORRECTED: Hum media_path ko seedhe use kar rahe hain
+        # Kyunki ab aapki server.py file full URL bhejegi
+        # Ab Streamlit ko file path nahi, balki URL milega.
+        mt = m.get("media_type")
         if "image" in mt:
-            st.image(src, use_container_width=True)
+            st.image(media_path, use_container_width=True)
         elif "audio" in mt:
-            st.audio(src)
+            st.audio(media_path)
         elif "video" in mt:
-            st.video(src)
+            st.video(media_path)
         elif mt == "text":
-        # For text files, ensure we open only local paths
-            if isinstance(src, str) and not src.startswith("http"):
-                with open(src, "rb") as f:
-                    st.download_button("Download file", data=f, file_name=os.path.basename(str(src)))
+            st.warning("Cannot preview text files, but you can download it.")
 
 
     st.write(m.get("description") or "")
