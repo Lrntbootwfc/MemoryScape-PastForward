@@ -5,11 +5,12 @@ import streamlit.components.v1 as components
 import requests 
 
 from auth import ensure_db, signup, login, logout
-from db import list_memories, insert_memory
+from db import list_memories, insert_memory,delete_memories
 from storage import save_upload_sync
 from emotions import classify
 from utils import iso_or_none, is_locked
 import ui
+# from streamlit_cookies_manager.EncryptedCookieManager import EncryptedCookieManager
 from streamlit_cookies_manager import EncryptedCookieManager  
 
 st.set_page_config(page_title="MemoryScape:", page_icon="🌻", layout="wide")
@@ -23,10 +24,6 @@ cookies = EncryptedCookieManager(
 if not cookies.ready(): 
     st.stop() 
 
-
-
-
-
 def fetch_memories_from_api(user_id: int, api_base: str = "http://127.0.0.1:8000/api"):
     """Fetch memories from FastAPI server with proper URLs"""
     try:
@@ -39,12 +36,6 @@ def fetch_memories_from_api(user_id: int, api_base: str = "http://127.0.0.1:8000
     except requests.exceptions.RequestException as e:
         st.error(f"Connection error: {e}")
         return []
-
-# Then replace this line in your main code:
-# memories = list_memories(user["id"])
-# With:
-
-
 
 if "user" not in st.session_state and cookies.get("logged_in") == "true": 
     st.session_state.user = {
@@ -85,9 +76,7 @@ with st.sidebar:
     else:
         user = st.session_state.user
         st.markdown(f"**Logged in as:** {user['name']} ({user['email']})")
-    # The FINAL, SIMPLE, AND CORRECT code
         if st.button("Logout"):
-    # Clear the user from the session state
             if "user" in st.session_state:
                 del st.session_state.user
 
@@ -118,7 +107,7 @@ with st.sidebar:
                 media_path, media_type = (None, None)
                 try:
                     if file is not None:
-                        media_path, media_type = save_upload_sync(user["id"], file)
+                        media_path, media_type = save_upload_sync(user["id"], file.getvalue(), file.name)
                 except Exception as e:
                     st.error(f"Upload failed: {e}")
                     media_path, media_type = (None, None)
@@ -202,6 +191,26 @@ else:
         
     elif view == "Garden":
         ui.garden_grid(memories, columns=4)
+        if 'selected_memories' in st.session_state and st.session_state.selected_memories:
+            st.warning(f"Are you sure you want to delete {len(st.session_state.selected_memories)} memories?")
+            if st.button("Confirm Delete"):
+                # Prepare the request body
+                data = {
+                    "user_id": user["id"],
+                    "memory_ids": st.session_state.selected_memories
+                }
+                try:
+                    # Send the DELETE request to your FastAPI backend
+                    response = requests.delete(
+                        "http://127.0.0.1:8000/api/memories",
+                        json=data
+                    )
+                    response.raise_for_status()
+                    st.success(f"Deleted {len(st.session_state.selected_memories)} memories.")
+                    st.session_state.selected_memories = [] # Clear the selection
+                    st.rerun()
+                except requests.exceptions.HTTPError as err:
+                    st.error(f"Error deleting memories: {err}")
         
     elif view == "Galaxy":
         ui.counters(memories)
