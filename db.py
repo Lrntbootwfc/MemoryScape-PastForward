@@ -80,3 +80,15 @@ def list_memories(user_id: int) -> List[Dict]:
             "unlock_at": r[5], "created_at": r[6], "media_path": r[7], "media_type": r[8]
         })
     return data
+
+def delete_memories(user_id: int, memory_ids: List[int]) -> bool:
+    if not memory_ids:
+        return True
+    
+    placeholders = ",".join("?" for _ in memory_ids)
+    
+    with get_conn() as conn:  # Use the thread-safe connection helper
+    
+        c = conn.execute(f"DELETE FROM memories WHERE user_id=? AND id IN ({placeholders})", (user_id, *memory_ids))
+        conn.commit()
+    return c.rowcount == len(memory_ids)

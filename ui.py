@@ -5,6 +5,7 @@ import plotly.graph_objects as go
 from utils import get_memory_state, is_locked
 from emotions import PLANT_BY_EMOTION
 from datetime import datetime, timezone
+import requests
 
 PLANT_EMOJIS = {
     "happy": "🌻", "romantic": "🌹", "sad": "🌿", "calm": "🌲",
@@ -66,22 +67,71 @@ def memory_card(m: Dict):
         unsafe_allow_html=True
     )
 
-def garden_grid(memories: List[Dict], show_header: bool = True, columns: int = 4):
+def garden_grid(memories: List[Dict], user_id: int, show_header: bool = True, columns: int = 4):
     if show_header:
         st.subheader("🌳 Garden View")
         counters(memories)
-    
-    if not memories:
+
+    if not memories and 'selected_memories' not in st.session_state:
         st.info("No memories yet. Plant your first memory from the sidebar.")
         return
 
-    rows = [memories[i:i + columns] for i in range(0, len(memories), columns)]
-    for row in rows:
-        cols = st.columns(columns)
-        for col, m in zip(cols, row):
-            with col:
-                with st.expander(f"{PLANT_EMOJIS.get(m.get('emotion'), '🌼')} {m.get('title', 'Untitled')}", expanded=False):
-                    memory_card(m)
+    # --- Confirmation Logic ---
+    # If memories have been selected in a previous run, show the confirmation dialog first.
+    if 'selected_memories' in st.session_state and st.session_state.selected_memories:
+        selected_count = len(st.session_state.selected_memories)
+        st.warning(f"Are you sure you want to delete {selected_count} selected memories?")
+
+        c1, c2, _ = st.columns([1.5, 1, 5])  # Adjust column width for buttons
+
+        with c1:
+            if st.button("✔️ Confirm Delete", type="primary"):
+                data = {
+                    "user_id": user_id,
+                    "memory_ids": st.session_state.selected_memories
+                }
+                try:
+                    response = requests.delete("http://127.0.0.1:8000/api/memories", json=data)
+                    response.raise_for_status()  # Raise an exception for bad status codes (4xx or 5xx)
+                    st.success(f"Deleted {selected_count} memories.")
+                    del st.session_state.selected_memories # Clear selection
+                    st.rerun()
+                except requests.exceptions.RequestException as e:
+                    st.error(f"Error deleting memories: {e}")
+                    del st.session_state.selected_memories # Clear selection to escape error state
+                    st.rerun()
+
+        with c2:
+            if st.button("❌ Cancel"):
+                del st.session_state.selected_memories # Clear selection
+                st.rerun()
+        # Do not render the rest of the grid while in confirmation mode
+        return
+
+    # --- Selection Logic ---
+    # This form is only shown if we are not in the confirmation phase.
+    with st.form("delete_form"):
+        selected_memories_in_form = []
+        if not memories:
+            st.info("Your garden is now empty.")
+        else:
+            rows = [memories[i:i + columns] for i in range(0, len(memories), columns)]
+            for row in rows:
+                cols = st.columns(columns)
+                for col, m in zip(cols, row):
+                    if not m: continue
+                    with col:
+                        # Use the memory ID in the checkbox label for clarity, but keep the key unique
+                        if st.checkbox(f"Select #{m.get('id')}", key=f"checkbox_{m.get('id')}"):
+                            selected_memories_in_form.append(m.get('id'))
+                        with st.expander(f"{PLANT_EMOJIS.get(m.get('emotion'), '🌼')} {m.get('title', 'Untitled')}", expanded=False):
+                            memory_card(m)
+
+        delete_button = st.form_submit_button("Delete Selected Memories")
+
+    if delete_button and selected_memories_in_form:
+        st.session_state.selected_memories = selected_memories_in_form
+        st.rerun()
 
 def galaxy_view(memories: List[Dict]):
     st.subheader("🌌 Galaxy View (3D)")

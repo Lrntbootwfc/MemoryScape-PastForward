@@ -6,7 +6,7 @@ from io import BytesIO
 import random 
 from concurrent.futures import ThreadPoolExecutor 
 import asyncio
-from fastapi import FastAPI, UploadFile, File, Form, HTTPException, Depends, Request 
+from fastapi import FastAPI, UploadFile, File, Form, HTTPException, Depends, Request ,Body
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
@@ -14,7 +14,7 @@ from fastapi.responses import PlainTextResponse
 from fastapi.routing import APIRouter
 
 from auth import ensure_db, login, signup
-from db import list_memories, insert_memory
+from db import list_memories, insert_memory,delete_memories
 from storage import save_upload_sync
 from emotions import classify
 
@@ -73,6 +73,11 @@ class SearchQuery(BaseModel):
     emotion: Optional[str] = None
     date_from: Optional[str] = None  # ISO date or yyyy-mm-dd
     date_to: Optional[str] = None
+    
+class DeleteRequest(BaseModel):
+    user_id: int
+    memory_ids: List[int]
+
 
 # ---------- Helpers ----------
 def normalize_date(s: Optional[str]) -> Optional[datetime]:
@@ -229,5 +234,12 @@ async def api_create_memory(
     if not created:
         raise HTTPException(status_code=500, detail="Created but not found")
     return to_out(created, request)
+
+@api_router.delete("/memories", status_code=204)
+def api_delete_memories(request_data: DeleteRequest = Body(...)):
+    success = delete_memories(request_data.user_id, request_data.memory_ids)
+    if not success:
+        raise HTTPException(status_code=400, detail="Could not delete all memories")
+    return
     
 app.include_router(api_router)

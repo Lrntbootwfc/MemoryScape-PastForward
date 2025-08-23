@@ -190,27 +190,9 @@ else:
             
         
     elif view == "Garden":
-        ui.garden_grid(memories, columns=4)
-        if 'selected_memories' in st.session_state and st.session_state.selected_memories:
-            st.warning(f"Are you sure you want to delete {len(st.session_state.selected_memories)} memories?")
-            if st.button("Confirm Delete"):
-                # Prepare the request body
-                data = {
-                    "user_id": user["id"],
-                    "memory_ids": st.session_state.selected_memories
-                }
-                try:
-                    # Send the DELETE request to your FastAPI backend
-                    response = requests.delete(
-                        "http://127.0.0.1:8000/api/memories",
-                        json=data
-                    )
-                    response.raise_for_status()
-                    st.success(f"Deleted {len(st.session_state.selected_memories)} memories.")
-                    st.session_state.selected_memories = [] # Clear the selection
-                    st.rerun()
-                except requests.exceptions.HTTPError as err:
-                    st.error(f"Error deleting memories: {err}")
+        # The garden_grid component now handles selection, confirmation, and deletion.
+        # We just need to call it and pass the user's ID.
+        ui.garden_grid(memories, user['id'], columns=4)
         
     elif view == "Galaxy":
         ui.counters(memories)
