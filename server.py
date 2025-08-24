@@ -234,8 +234,7 @@ async def api_create_memory(
 def delete_multiple_memories(request_data: DeleteRequest = Body(...)):
     """Deletes one or more memories based on a list of IDs."""
     try:
-        # Your existing db.delete_memories function already handles a list!
-        delete_memories(user_id=0, memory_ids=request_data.memory_ids) # Using a dummy user_id
+        delete_memories(user_id=0, memory_ids=request_data.memory_ids)
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Could not delete memories: {e}")
     return
