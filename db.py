@@ -84,37 +84,46 @@ def list_memories(user_id: int) -> List[Dict]:
 
 def delete_memories(user_id: int, memory_ids: List[int]) -> bool:
     """
-    Deletes memories from the database and also removes their associated media files from storage.
-    NOTE: user_id is not used for authorization here, but would be in a real app.
+    Deletes memories from the database that match the provided IDs AND the user_id.
+    Also removes their associated media files from storage.
     """
-    if not memory_ids:
+    if not memory_ids or not user_id:
         return False
 
     media_root = os.getenv("MEDIA_ROOT", "uploads")
     placeholders = ",".join("?" for _ in memory_ids)
 
+    # Combine memory_ids and the user_id for the query parameters
+    params = memory_ids + [user_id]
+
     with get_conn() as conn:
-
+        # First, find the media paths for the memories that are about to be deleted
+        # CHANGE: Added 'AND user_id = ?' to the query for security
         cursor = conn.execute(
-            f"SELECT media_path FROM memories WHERE id IN ({placeholders})", 
-            memory_ids
+            f"SELECT media_path FROM memories WHERE id IN ({placeholders}) AND user_id = ?",
+            params
         )
-
         paths_to_delete = [row[0] for row in cursor.fetchall() if row[0]]
 
+        # Now, execute the delete operation
+        # CHANGE: Added 'AND user_id = ?' to ensure users can only delete their own memories
         cursor = conn.execute(
-            f"DELETE FROM memories WHERE id IN ({placeholders})", 
-            memory_ids
+            f"DELETE FROM memories WHERE id IN ({placeholders}) AND user_id = ?",
+            params
         )
         conn.commit()
 
+        # If rows were actually deleted, proceed to remove files
         if cursor.rowcount > 0:
             for path in paths_to_delete:
+                # The path stored is relative, construct the full path to delete
                 full_path = os.path.join(media_root, os.path.basename(path)) 
                 if os.path.exists(full_path):
                     try:
                         os.remove(full_path)
                     except OSError as e:
+                        # Log the error but don't stop the process
                         print(f"Error deleting file {full_path}: {e}")
             return True
-        return False
+            
+    return False

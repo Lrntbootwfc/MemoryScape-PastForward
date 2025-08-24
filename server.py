@@ -55,6 +55,7 @@ class UserOut(BaseModel):
     email: str
     
 class DeleteRequest(BaseModel):
+    user_id: int
     memory_ids: List[int]
 
 class MemoryOut(BaseModel):
@@ -230,13 +231,26 @@ async def api_create_memory(
         raise HTTPException(status_code=500, detail="Created but not found")
     return to_out(created, request)
 
-@api_router.delete("/memories", status_code=204)
+@api_router.post("/memories/delete", status_code=204)
 def delete_multiple_memories(request_data: DeleteRequest = Body(...)):
-    """Deletes one or more memories based on a list of IDs."""
+    """Deletes one or more memories for a specific user."""
+    if not request_data.memory_ids:
+        # No need to do anything if the list is empty
+        return
+
     try:
-        delete_memories(user_id=0, memory_ids=request_data.memory_ids)
+        # Pass the actual user_id to the database function
+        deleted = delete_memories(
+            user_id=request_data.user_id, 
+            memory_ids=request_data.memory_ids
+        )
+        if not deleted:
+            # This can happen if the IDs don't exist or don't belong to the user
+            raise HTTPException(status_code=404, detail="No matching memories found to delete.")
     except Exception as e:
+        # Catch potential errors and provide a clear message
         raise HTTPException(status_code=400, detail=f"Could not delete memories: {e}")
-    return
     
+    return
+
 app.include_router(api_router)

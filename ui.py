@@ -67,6 +67,10 @@ def memory_card(m: Dict):
         f"<div style='font-size:{size_map.get(state, 40)}px'>{emoji}</div>",
         unsafe_allow_html=True
     )
+# ui.py
+
+# ... (keep other imports and code)
+
 def garden_grid(memories: List[Dict], user_id: int, api_base: str, show_header: bool = True, columns: int = 4):
     if show_header:
         st.subheader("🌳 Garden View")
@@ -77,58 +81,54 @@ def garden_grid(memories: List[Dict], user_id: int, api_base: str, show_header: 
         return
 
     # --- Confirmation Logic ---
-    # If memories have been selected in a previous run, show the confirmation dialog first.
     if 'selected_memories' in st.session_state and st.session_state.selected_memories:
         selected_count = len(st.session_state.selected_memories)
         st.warning(f"Are you sure you want to delete {selected_count} selected memories?")
 
-        c1, c2, _ = st.columns([1.5, 1, 5])  # Adjust column width for buttons
+        col1, col2, _ = st.columns([1.5, 1, 5])
 
-        with c1:
-            if st.button("✔️ Confirm Delete", type="primary"):
-                selected_ids = st.session_state.selected_memories
+        if col1.button("✔️ Confirm Delete", type="primary"):
+            selected_ids = st.session_state.selected_memories
+            # CHANGE: Pass the user_id to the API call
+            delete_multiple_memories_via_api(user_id, selected_ids, api_base)
+            # CHANGE: Always clear selection and rerun to refresh the state
+            del st.session_state.selected_memories
+            st.rerun()
 
-    # A single, efficient API call for all selected memories
-                success = delete_multiple_memories_via_api(selected_ids, api_base)
-
-    # Clear the selection and rerun the app
-                del st.session_state.selected_memories
-                if success:
-                    st.rerun()
-
-
-        with c2:
-            if st.button("❌ Cancel"):
-                del st.session_state.selected_memories # Clear selection
-                st.rerun()
-        # Do not render the rest of the grid while in confirmation mode
+        if col2.button("❌ Cancel"):
+            # CHANGE: Clear selection and rerun to exit confirmation mode
+            del st.session_state.selected_memories
+            st.rerun()
+        
+        # Stop rendering the rest of the grid while in confirmation mode
         return
 
-    # --- Selection Logic ---
-    # This form is only shown if we are not in the confirmation phase.
+    # --- Selection Form ---
     with st.form("delete_form"):
         selected_memories_in_form = []
         if not memories:
             st.info("Your garden is now empty.")
         else:
-            rows = [memories[i:i + columns] for i in range(0, len(memories), columns)]
-            for row in rows:
+            # Create a grid for memories
+            for i in range(0, len(memories), columns):
                 cols = st.columns(columns)
-                for col, m in zip(cols, row):
-                    if not m: continue
-                    with col:
-                        # Use the memory ID in the checkbox label for clarity, but keep the key unique
+                for col_idx, m in enumerate(memories[i:i + columns]):
+                    with cols[col_idx]:
                         if st.checkbox(f"Select #{m.get('id')}", key=f"checkbox_{m.get('id')}"):
                             selected_memories_in_form.append(m.get('id'))
                         with st.expander(f"{PLANT_EMOJIS.get(m.get('emotion'), '🌼')} {m.get('title', 'Untitled')}", expanded=False):
                             memory_card(m)
+        
+        # Submit button for the form
+        delete_button_pressed = st.form_submit_button("Delete Selected Memories")
 
-        delete_button = st.form_submit_button("Delete Selected Memories")
-
-    if delete_button and selected_memories_in_form:
+    if delete_button_pressed and selected_memories_in_form:
         st.session_state.selected_memories = selected_memories_in_form
         st.rerun()
+    elif delete_button_pressed:
+        st.toast("Please select at least one memory to delete.")
 
+# ... (keep rest of the file)
 def galaxy_view(memories: List[Dict]):
     st.subheader("🌌 Galaxy View (3D)")
     if not memories:
