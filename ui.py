@@ -6,7 +6,7 @@ from utils import get_memory_state, is_locked
 from emotions import PLANT_BY_EMOTION
 from datetime import datetime, timezone
 import requests
-from app import delete_memory_via_api
+from api_client import delete_memory_via_api
 
 PLANT_EMOJIS = {
     "happy": "🌻", "romantic": "🌹", "sad": "🌿", "calm": "🌲",
