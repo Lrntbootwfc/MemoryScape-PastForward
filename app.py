@@ -1,17 +1,20 @@
+# app.py
+
 import os
 from datetime import datetime
 import streamlit as st
-import streamlit.components.v1 as components
 import requests 
-from api_client import fetch_memories_from_api
+
+# Import the new API client function for creation
+from api_client import fetch_memories_from_api, create_memory_via_api
 
 from auth import ensure_db, signup, login, logout
-from db import list_memories, insert_memory,delete_memories
-from storage import save_upload_sync
+# These direct DB/storage calls will no longer be used in the form
+# from db import insert_memory 
+# from storage import save_upload_sync
 from emotions import classify
-from utils import iso_or_none, is_locked
+from utils import iso_or_none
 import ui
-# from streamlit_cookies_manager.EncryptedCookieManager import EncryptedCookieManager
 from streamlit_cookies_manager import EncryptedCookieManager  
 
 st.set_page_config(page_title="MemoryScape:", page_icon="🌻", layout="wide")
@@ -34,12 +37,9 @@ cookies = EncryptedCookieManager(
 if not cookies.ready(): 
     st.stop() 
 
-# In app.py
-
-
 if "user" not in st.session_state and cookies.get("logged_in") == "true": 
     st.session_state.user = {
-        "id": cookies.get("user_id"),
+        "id": int(cookies.get("user_id")), # Ensure user_id is an integer
         "name": cookies.get("user_name"),
         "email": cookies.get("user_email")
     }
@@ -47,6 +47,7 @@ if "user" not in st.session_state and cookies.get("logged_in") == "true":
 # --- Sidebar: Auth or Actions ---
 with st.sidebar:
     st.title("MemoryScape 🌿")
+    # --- NO CHANGES TO LOGIN/SIGNUP LOGIC ---
     if "user" not in st.session_state:
         st.header("Login")
         email = st.text_input("Email", key="login_email")
@@ -80,59 +81,81 @@ with st.sidebar:
             if "user" in st.session_state:
                 del st.session_state.user
 
-    # Clear all the cookies
             cookies["logged_in"] = "false"
             cookies["user_id"] = ""
             cookies["user_name"] = ""
             cookies["user_email"] = ""
             cookies.save()
-    
-    # Rerun the app just once to show the login form
             st.rerun()
 
         st.divider()
         st.header("Plant a Memory")
+        
+        # --- REVISED MEMORY CREATION FORM ---
         with st.form("plant_form", clear_on_submit=True):
-            title = st.text_input("Title")
-            desc = st.text_area("Description (used for emotion classification)")
-            file = st.file_uploader("Upload media (image/audio/video/text)", type=None)
-            unlock_date = st.date_input("Unlock date (optional, future date allowed)", value=None)
+            title = st.text_input("Title *")
+            desc = st.text_area("Description (optional)")
+            file = st.file_uploader("Upload media (image/audio/video)", type=None)
+            unlock_date = st.date_input("Unlock date (optional)", value=None)
+            
+            # NEW: Explicit flower/model selection
+            flower_options = {
+                "Alien Flower": "alien_flower_optimized.glb",
+                "Blue Flower": "blue_flower_optimized.glb",
+                "Calendula": "calendula_flower.glb",
+                "Pink Animated Flower": "flower_optimized.glb",
+                "Detailed Pink Flower": "flower_original_optimized.glb",
+                "Sunflower": "sunflower.glb",
+                "White Flower": "white_flower_optimized.glb",
+                "Lotus Flower": "lotus_flower_by_geometry_nodes.glb",
+            }
+            selected_flower_name = st.selectbox(
+                "Choose a flower for your 3D garden *",
+                options=list(flower_options.keys())
+            )
+
             submit = st.form_submit_button("Plant 🌱")
+
         if submit:
-            if not title:
-                st.error("Title is required.")
+            if not title or not selected_flower_name:
+                st.error("Title and a chosen flower are required.")
             else:
-                # Emotion classification (text only; you can add multimodal later)
-                label, plant = classify(f"{title}\n{desc or ''}")
-                media_path, media_type = (None, None)
-                try:
-                    if file is not None:
-                        media_path, media_type = save_upload_sync(user["id"], file.getvalue(), file.name)
-                except Exception as e:
-                    st.error(f"Upload failed: {e}")
-                    media_path, media_type = (None, None)
+                # 1. Classify emotion from text
+                label, _ = classify(f"{title}\n{desc or ''}")
+                
+                # 2. Prepare data for the API call
+                api_base = os.getenv("API_BASE_URL", "http://127.0.0.1:8000/api")
+                memory_data = {
+                    "user_id": user["id"],
+                    "title": title,
+                    "desc": desc or "",
+                    "emotion": label,
+                    "model_path": flower_options[selected_flower_name] # Pass the selected model filename
+                }
 
-                unlock_iso = None
+                # Add unlock date if provided
                 if unlock_date:
-                    # interpret as midnight local; store ISO
                     unlock_iso = datetime(unlock_date.year, unlock_date.month, unlock_date.day).isoformat()
+                    memory_data["unlock_at_iso"] = unlock_iso
 
-                mem_id = insert_memory(
-                    user_id=user["id"], title=title, desc=desc or "",
-                    emotion=label, unlock_at_iso=unlock_iso,
-                    media_path=media_path, media_type=media_type
+                # 3. Prepare file for upload if it exists
+                file_content, file_name = (None, None)
+                if file:
+                    file_content = file.getvalue()
+                    file_name = file.name
+
+                # 4. Call the API client function to create the memory
+                created = create_memory_via_api(
+                    api_base=api_base,
+                    memory_data=memory_data,
+                    file=file_content,
+                    filename=file_name
                 )
-                st.success(f"Planted as {plant} ({label}).")
-                st.rerun()
-
-
-
-
-
-# --- Helper: Set Background for each view ---
-def set_background(view: str):
-    # No background for main page - backgrounds will be on separate pages
-    pass
+                
+                if created:
+                    # Rerun to refresh the memory list from the API
+                    st.rerun()
+                # Errors are handled within the api_client function
 
 # --- Main Area ---
 st.title("🌼 MemoryScape: PastForward Edition")
@@ -141,7 +164,6 @@ if "user" not in st.session_state:
     st.info("Please log in or create an account from the sidebar.")
 else:
     user = st.session_state.user
-    # theme toggle
     theme = st.segmented_control("Theme", options=["Default","Spring","Autumn","Night"], key="theme", help="Garden themes")
     if theme == "Spring":
         st.markdown("<style>.stApp { background: linear-gradient(180deg,#f0fff4,#ffffff); }</style>", unsafe_allow_html=True)
@@ -150,10 +172,11 @@ else:
     elif theme == "Night":
         st.markdown("<style>.stApp { background: linear-gradient(180deg,#0f172a,#1f2937); color:#e5e7eb; }</style>", unsafe_allow_html=True)
 
-    view = st.segmented_control("View", options=["Home","Garden","Enhanced Garden"])
+    view = st.segmented_control("View", options=["Home", "Garden", "Enhanced Garden"])
+    
+    # Ensure api_base is defined for fetching and deleting
     api_base = os.getenv("API_BASE_URL", "http://127.0.0.1:8000/api")
-    # No background setting here - backgrounds will be on separate pages
-    memories = fetch_memories_from_api(user["id"],api_base=api_base)
+    memories = fetch_memories_from_api(user["id"], api_base=api_base)
 
     if view == "Enhanced Garden":
         st.subheader("Your 3D Memory Garden")
@@ -162,32 +185,26 @@ else:
         st.markdown(f"**Click here to view the 3D garden:** [Memory Garden]({garden_url})")
         
     elif view == "Garden":
-        ui.garden_grid(memories, user['id'], api_base=api_base, columns=4)
+        # The user_id and api_base are passed correctly for deletion to work
+        ui.garden_grid(memories, user['id'], api_base=api_base)
         
-    elif view == "Galaxy":
-        ui.counters(memories)
-        ui.galaxy_view(memories)
     else:  # Home view
         st.subheader("🏠 Welcome to Your Memory Garden")
         st.markdown("""
         This is your personal space for planting and nurturing memories. 
         Choose a view from above to explore your memories in different ways:
         
-        - **Home**: Your cozy space to start your journey
-        - **Garden**: A grid view of all your planted memories
-        - **Galaxy**: A 3D visualization of your memory universe
+        - **Home**: A summary of your most recent entries.
+        - **Garden**: A grid of all your memories, where you can select them for deletion.
+        - **Enhanced Garden**: Your interactive 3D garden experience.
         """)
         ui.counters(memories)
         
         if memories:
             st.subheader("🌱 Recent Memories")
-            recent_memories = memories[:3]  # Show last 3 memories
+            recent_memories = memories[:3]
             for memory in recent_memories:
                 with st.expander(f"📝 {memory.get('title', 'Untitled')}", expanded=False):
                     ui.memory_card(memory)
         else:
             st.info("No memories yet. Plant your first memory from the sidebar! 🌱")
-    
-    st.divider()
-    # st.caption("💡 Tip: Emotion engine is rule-based by default. Set EMOTION_BACKEND=hf or openai in deployment to upgrade.")
-

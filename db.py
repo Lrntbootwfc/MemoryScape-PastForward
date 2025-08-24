@@ -31,6 +31,7 @@ def init_db():
             created_at TEXT NOT NULL,
             media_path TEXT,
             media_type TEXT,
+            model_path TEXT,
             FOREIGN KEY(user_id) REFERENCES users(id)
         );
         """)
@@ -56,19 +57,19 @@ def get_user_by_email(email: str) -> Optional[Tuple]:
         cur = conn.execute("SELECT id,email,name,password_hash,created_at FROM users WHERE email=?", (email,))
         return cur.fetchone()
 
-def insert_memory(user_id: int, title: str, desc: str, emotion: str,unlock_at_iso: Optional[str], media_path: Optional[str],media_type: Optional[str]) -> int:
+def insert_memory(user_id: int, title: str, desc: str, emotion: str,unlock_at_iso: Optional[str], media_path: Optional[str],media_type: Optional[str],model_path: Optional[str]) -> int:
     with get_conn() as conn:
         cur = conn.execute("""
-            INSERT INTO memories(user_id,title,description,emotion,unlock_at,created_at,media_path,media_type)
-            VALUES(?,?,?,?,?,?,?,?)
-        """, (user_id, title, desc, emotion, unlock_at_iso, datetime.utcnow().isoformat(), media_path, media_type))
+            INSERT INTO memories(user_id,title,description,emotion,unlock_at,created_at,media_path,media_type, model_path)
+            VALUES(?,?,?,?,?,?,?,?,?)
+            """, (user_id, title, desc, emotion, unlock_at_iso, datetime.utcnow().isoformat(), media_path, media_type, model_path))
         conn.commit()
         return cur.lastrowid
 
 def list_memories(user_id: int) -> List[Dict]:
     with get_conn() as conn:
         cur = conn.execute("""
-            SELECT id, user_id, title, description, emotion, unlock_at, created_at, media_path, media_type
+            SELECT id, user_id, title, description, emotion, unlock_at, created_at, media_path, media_type, model_path
             FROM memories WHERE user_id=? ORDER BY created_at DESC
         """, (user_id,))
         rows = cur.fetchall()
@@ -77,7 +78,8 @@ def list_memories(user_id: int) -> List[Dict]:
     for r in rows:
         data.append({
             "id": r[0], "user_id": r[1], "title": r[2], "description": r[3], "emotion": r[4],
-            "unlock_at": r[5], "created_at": r[6], "media_path": r[7], "media_type": r[8]
+            "unlock_at": r[5], "created_at": r[6], "media_path": r[7], "media_type": r[8],
+            "model_path": r[9] 
         })
     return data
 
@@ -92,37 +94,33 @@ def delete_memories(user_id: int, memory_ids: List[int]) -> bool:
 
     media_root = os.getenv("MEDIA_ROOT", "uploads")
     placeholders = ",".join("?" for _ in memory_ids)
-
-    # Combine memory_ids and the user_id for the query parameters
+    
+    # Parameters for the SQL query, including the user_id for the WHERE clause
     params = memory_ids + [user_id]
 
     with get_conn() as conn:
-        # First, find the media paths for the memories that are about to be deleted
-        # CHANGE: Added 'AND user_id = ?' to the query for security
+        # First, find the media paths for the memories that belong to the user
         cursor = conn.execute(
             f"SELECT media_path FROM memories WHERE id IN ({placeholders}) AND user_id = ?",
             params
         )
         paths_to_delete = [row[0] for row in cursor.fetchall() if row[0]]
 
-        # Now, execute the delete operation
-        # CHANGE: Added 'AND user_id = ?' to ensure users can only delete their own memories
+        # Now, execute the delete operation, ensuring it's for the correct user
         cursor = conn.execute(
             f"DELETE FROM memories WHERE id IN ({placeholders}) AND user_id = ?",
             params
         )
         conn.commit()
 
-        # If rows were actually deleted, proceed to remove files
+        # If rows were deleted, proceed to remove the associated files
         if cursor.rowcount > 0:
             for path in paths_to_delete:
-                # The path stored is relative, construct the full path to delete
-                full_path = os.path.join(media_root, os.path.basename(path)) 
+                full_path = os.path.join(media_root, path)
                 if os.path.exists(full_path):
                     try:
                         os.remove(full_path)
                     except OSError as e:
-                        # Log the error but don't stop the process
                         print(f"Error deleting file {full_path}: {e}")
             return True
             
