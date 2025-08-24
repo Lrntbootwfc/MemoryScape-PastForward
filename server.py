@@ -231,7 +231,7 @@ async def api_create_memory(
     return to_out(created, request)
 
 @api_router.delete("/memories", status_code=204)
-def delete_multiple_memories(request_data: DeleteRequest):
+def delete_multiple_memories(request_data: DeleteRequest = Body(...)):
     """Deletes one or more memories based on a list of IDs."""
     try:
         # Your existing db.delete_memories function already handles a list!
