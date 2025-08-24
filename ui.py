@@ -6,7 +6,7 @@ from utils import get_memory_state, is_locked
 from emotions import PLANT_BY_EMOTION
 from datetime import datetime, timezone
 import requests
-from api_client import delete_memory_via_api
+from api_client import delete_multiple_memories_via_api
 
 PLANT_EMOJIS = {
     "happy": "🌻", "romantic": "🌹", "sad": "🌿", "calm": "🌲",
@@ -86,20 +86,16 @@ def garden_grid(memories: List[Dict], user_id: int, api_base: str, show_header: 
 
         with c1:
             if st.button("✔️ Confirm Delete", type="primary"):
-                success_count = 0
                 selected_ids = st.session_state.selected_memories
 
-    # Loop through each selected memory and call the API
-                for mem_id in selected_ids:
-                    if delete_memory_via_api(mem_id, api_base):
-                        success_count += 1
+    # A single, efficient API call for all selected memories
+                success = delete_multiple_memories_via_api(selected_ids, api_base)
 
-                if success_count > 0:
-                    st.success(f"Successfully deleted {success_count} memories.")
-
-    # Clear the selection and rerun the app to show the updated garden
+    # Clear the selection and rerun the app
                 del st.session_state.selected_memories
-                st.rerun()
+                if success:
+                    st.rerun()
+
 
         with c2:
             if st.button("❌ Cancel"):

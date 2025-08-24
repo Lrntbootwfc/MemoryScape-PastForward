@@ -53,6 +53,9 @@ class UserOut(BaseModel):
     id: int
     name: str
     email: str
+    
+class DeleteRequest(BaseModel):
+    memory_ids: List[int]
 
 class MemoryOut(BaseModel):
     id: int
@@ -74,10 +77,6 @@ class SearchQuery(BaseModel):
     date_from: Optional[str] = None  # ISO date or yyyy-mm-dd
     date_to: Optional[str] = None
     
-class DeleteRequest(BaseModel):
-    user_id: int
-    memory_ids: List[int]
-
 
 # ---------- Helpers ----------
 def normalize_date(s: Optional[str]) -> Optional[datetime]:
@@ -137,10 +136,6 @@ def api_signup(email: str = Form(...), name: str = Form(...), password: str = Fo
         raise HTTPException(status_code=400, detail="Signup failed")
     user = login(email, password)
     return user
-
-# @app.get("/memorygarden", response_class=PlainTextResponse)
-# def memorygarden_landing():
-#     return "Memory Garden endpoint is reachable. Use the Streamlit app or the React UI."
 
 @api_router.get("/memories", response_model=List[MemoryOut])
 def api_list_memories(user_id: int, request: Request):
@@ -235,13 +230,14 @@ async def api_create_memory(
         raise HTTPException(status_code=500, detail="Created but not found")
     return to_out(created, request)
 
-@api_router.delete("/memories/{memory_id}", status_code=204)
-def delete_single_memory(memory_id: int):
-    """Deletes a single memory by its ID."""
+@api_router.delete("/memories", status_code=204)
+def delete_multiple_memories(request_data: DeleteRequest):
+    """Deletes one or more memories based on a list of IDs."""
     try:
-        delete_memories(user_id=0, memory_ids=[memory_id]) 
+        # Your existing db.delete_memories function already handles a list!
+        delete_memories(user_id=0, memory_ids=request_data.memory_ids) # Using a dummy user_id
     except Exception as e:
-        raise HTTPException(status_code=404, detail=f"Memory not found or could not be deleted: {e}")
+        raise HTTPException(status_code=400, detail=f"Could not delete memories: {e}")
     return
     
 app.include_router(api_router)

@@ -15,15 +15,19 @@ def fetch_memories_from_api(user_id: int, api_base: str):
         st.error(f"Connection error: {e}")
         return []
 
-def delete_memory_via_api(memory_id: int, api_base: str):
-    """Sends a DELETE request to the backend API for a single memory."""
+def delete_multiple_memories_via_api(memory_ids: list, api_base: str):
+    """Sends a single DELETE request with a list of memory IDs to the backend."""
     try:
-        response = requests.delete(f"{api_base}/memories/{memory_id}")
-        if response.status_code == 204:  # 204 means success
-            st.toast("Memory deleted! 🗑️")
+        
+        response = requests.delete(
+            f"{api_base}/memories",
+            json={"memory_ids": memory_ids}
+        )
+        if response.status_code == 204:  # Success
+            st.toast(f"Deleted {len(memory_ids)} memories! 🗑️")
             return True
         else:
-            st.error(f"Failed to delete memory: {response.text}")
+            st.error(f"Failed to delete memories: {response.text}")
             return False
     except requests.exceptions.RequestException as e:
         st.error(f"Connection error while deleting: {e}")
