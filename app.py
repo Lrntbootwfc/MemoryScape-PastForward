@@ -33,6 +33,23 @@ cookies = EncryptedCookieManager(
 if not cookies.ready(): 
     st.stop() 
 
+# In app.py
+
+# --- ⭐️ ADD THIS NEW HELPER FUNCTION ⭐️ ---
+def delete_memory_via_api(memory_id: int, api_base: str):
+    """Sends a DELETE request to the backend API for a single memory."""
+    try:
+        response = requests.delete(f"{api_base}/memories/{memory_id}")
+        if response.status_code == 204:  # 204 means success with no content
+            st.toast("Memory deleted! 🗑️")
+            return True
+        else:
+            st.error(f"Failed to delete memory: {response.text}")
+            return False
+    except requests.exceptions.RequestException as e:
+        st.error(f"Connection error while deleting: {e}")
+        return False
+
 def fetch_memories_from_api(user_id: int, api_base: str = "http://127.0.0.1:8000/api"):
     """Fetch memories from FastAPI server with proper URLs"""
     try:
@@ -171,9 +188,7 @@ else:
         st.markdown(f"**Click here to view the 3D garden:** [Memory Garden]({garden_url})")
         
     elif view == "Garden":
-        # The garden_grid component now handles selection, confirmation, and deletion.
-        # We just need to call it and pass the user's ID.
-        ui.garden_grid(memories, user['id'], columns=4)
+        ui.garden_grid(memories, user['id'], api_base=api_base, columns=4)
         
     elif view == "Galaxy":
         ui.counters(memories)

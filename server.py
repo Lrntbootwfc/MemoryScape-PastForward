@@ -235,11 +235,13 @@ async def api_create_memory(
         raise HTTPException(status_code=500, detail="Created but not found")
     return to_out(created, request)
 
-@api_router.delete("/memories", status_code=204)
-def api_delete_memories(request_data: DeleteRequest = Body(...)):
-    success = delete_memories(request_data.user_id, request_data.memory_ids)
-    if not success:
-        raise HTTPException(status_code=400, detail="Could not delete all memories")
+@api_router.delete("/memories/{memory_id}", status_code=204)
+def delete_single_memory(memory_id: int):
+    """Deletes a single memory by its ID."""
+    try:
+        delete_memories(user_id=0, memory_ids=[memory_id]) 
+    except Exception as e:
+        raise HTTPException(status_code=404, detail=f"Memory not found or could not be deleted: {e}")
     return
     
 app.include_router(api_router)

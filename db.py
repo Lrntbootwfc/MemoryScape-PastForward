@@ -81,14 +81,40 @@ def list_memories(user_id: int) -> List[Dict]:
         })
     return data
 
+
 def delete_memories(user_id: int, memory_ids: List[int]) -> bool:
+    """
+    Deletes memories from the database and also removes their associated media files from storage.
+    NOTE: user_id is not used for authorization here, but would be in a real app.
+    """
     if not memory_ids:
-        return True
-    
+        return False
+
+    media_root = os.getenv("MEDIA_ROOT", "uploads")
     placeholders = ",".join("?" for _ in memory_ids)
-    
-    with get_conn() as conn:  # Use the thread-safe connection helper
-    
-        c = conn.execute(f"DELETE FROM memories WHERE user_id=? AND id IN ({placeholders})", (user_id, *memory_ids))
+
+    with get_conn() as conn:
+
+        cursor = conn.execute(
+            f"SELECT media_path FROM memories WHERE id IN ({placeholders})", 
+            memory_ids
+        )
+
+        paths_to_delete = [row[0] for row in cursor.fetchall() if row[0]]
+
+        cursor = conn.execute(
+            f"DELETE FROM memories WHERE id IN ({placeholders})", 
+            memory_ids
+        )
         conn.commit()
-    return c.rowcount == len(memory_ids)
+
+        if cursor.rowcount > 0:
+            for path in paths_to_delete:
+                full_path = os.path.join(media_root, os.path.basename(path)) 
+                if os.path.exists(full_path):
+                    try:
+                        os.remove(full_path)
+                    except OSError as e:
+                        print(f"Error deleting file {full_path}: {e}")
+            return True
+        return False
