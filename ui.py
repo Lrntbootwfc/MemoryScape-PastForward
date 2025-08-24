@@ -6,6 +6,7 @@ from utils import get_memory_state, is_locked
 from emotions import PLANT_BY_EMOTION
 from datetime import datetime, timezone
 import requests
+from app import delete_memory_via_api
 
 PLANT_EMOJIS = {
     "happy": "🌻", "romantic": "🌹", "sad": "🌿", "calm": "🌲",
@@ -66,8 +67,7 @@ def memory_card(m: Dict):
         f"<div style='font-size:{size_map.get(state, 40)}px'>{emoji}</div>",
         unsafe_allow_html=True
     )
-
-def garden_grid(memories: List[Dict], user_id: int, show_header: bool = True, columns: int = 4):
+def garden_grid(memories: List[Dict], user_id: int, api_base: str, show_header: bool = True, columns: int = 4):
     if show_header:
         st.subheader("🌳 Garden View")
         counters(memories)
@@ -86,20 +86,20 @@ def garden_grid(memories: List[Dict], user_id: int, show_header: bool = True, co
 
         with c1:
             if st.button("✔️ Confirm Delete", type="primary"):
-                data = {
-                    "user_id": user_id,
-                    "memory_ids": st.session_state.selected_memories
-                }
-                try:
-                    response = requests.delete("http://127.0.0.1:8000/api/memories", json=data)
-                    response.raise_for_status()  # Raise an exception for bad status codes (4xx or 5xx)
-                    st.success(f"Deleted {selected_count} memories.")
-                    del st.session_state.selected_memories # Clear selection
-                    st.rerun()
-                except requests.exceptions.RequestException as e:
-                    st.error(f"Error deleting memories: {e}")
-                    del st.session_state.selected_memories # Clear selection to escape error state
-                    st.rerun()
+                success_count = 0
+                selected_ids = st.session_state.selected_memories
+
+    # Loop through each selected memory and call the API
+                for mem_id in selected_ids:
+                    if delete_memory_via_api(mem_id, api_base):
+                        success_count += 1
+
+                if success_count > 0:
+                    st.success(f"Successfully deleted {success_count} memories.")
+
+    # Clear the selection and rerun the app to show the updated garden
+                del st.session_state.selected_memories
+                st.rerun()
 
         with c2:
             if st.button("❌ Cancel"):
