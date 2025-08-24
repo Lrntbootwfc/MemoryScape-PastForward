@@ -14,13 +14,22 @@ import ui
 from streamlit_cookies_manager import EncryptedCookieManager  
 
 st.set_page_config(page_title="MemoryScape:", page_icon="🌻", layout="wide")
+st.markdown("""
+<style>
+    [data-testid="stSidebarNav"] {
+        display: none;
+    }
+</style>
+""", unsafe_allow_html=True)
+
 ensure_db()
 
-cookies = EncryptedCookieManager(
-    prefix="memscape_",  # unique key prefix for app
-    password="super_secret_key_change_me"  
-)
+cookie_password = os.getenv("COOKIE_PASSWORD", "a_default_password_for_local_use")
 
+cookies = EncryptedCookieManager(
+    prefix="memscape_",
+    password=cookie_password
+)
 if not cookies.ready(): 
     st.stop() 
 
@@ -150,44 +159,16 @@ else:
     elif theme == "Night":
         st.markdown("<style>.stApp { background: linear-gradient(180deg,#0f172a,#1f2937); color:#e5e7eb; }</style>", unsafe_allow_html=True)
 
-    view = st.segmented_control("View", options=["Home","Garden","Enhanced Garden","Galaxy"])
-    
+    view = st.segmented_control("View", options=["Home","Garden","Enhanced Garden"])
+    api_base = os.getenv("API_BASE_URL", "http://127.0.0.1:8000/api")
     # No background setting here - backgrounds will be on separate pages
-    memories = fetch_memories_from_api(user["id"])
+    memories = fetch_memories_from_api(user["id"],api_base=api_base)
 
     if view == "Enhanced Garden":
         st.subheader("Your 3D Memory Garden")
         frontend_base = os.getenv("FRONTEND_URL", "http://localhost:5173")
-        api_base = os.getenv("API_BASE_URL", "http://127.0.0.1:8000/api")
         garden_url = f"{frontend_base}/?user_id={user['id']}&api_base={api_base}"
         st.markdown(f"**Click here to view the 3D garden:** [Memory Garden]({garden_url})")
-
-        # # Check if the build folder exists
-        # react_build_path = r"D:\.vscode\memoryscapegarden\memoryscape-garden\Memory_Garden\dist"
-        # # react_build_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'Memory_Garden', 'dist'))
-        # # react_build_path = os.path.join(os.path.dirname(__file__), "..", "Memory_Garden", "dist")
-        # if not os.path.exists(react_build_path):
-        #     st.error("React build folder not found! Please run 'npm run build' in your React project directory first.")
-        # else:
-        #     # Read the index.html file
-        #     with open(os.path.join(react_build_path, "index.html"), "r") as f:
-        #         html_code = f.read()
-
-        #     # IMPORTANT: We pass the user's ID to the React app via a global JavaScript variable.
-#         #       html_code = html_code.replace(
-#       "<head>",
-#       f"<head><script>window.memoryscape_user_id = {user['id']};"
-#       f"window.memoryscape_api_base = 'http://127.0.0.1:8000/api';</script>"
-#   )
-        #     # Embed the HTML component
-        #     # NEW: The key is used to force a refresh when the number of memories changes
-        #     components.html(
-        #         f"<iframe srcdoc='{html_code}' style='width:100%; height:100%; border:none;'></iframe>", 
-        #         height=600, 
-        #         scrolling=False
-        #     )
-            
-            
         
     elif view == "Garden":
         # The garden_grid component now handles selection, confirmation, and deletion.
@@ -219,5 +200,5 @@ else:
             st.info("No memories yet. Plant your first memory from the sidebar! 🌱")
     
     st.divider()
-    st.caption("💡 Tip: Emotion engine is rule-based by default. Set EMOTION_BACKEND=hf or openai in deployment to upgrade.")
+    # st.caption("💡 Tip: Emotion engine is rule-based by default. Set EMOTION_BACKEND=hf or openai in deployment to upgrade.")
 
