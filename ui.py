@@ -6,7 +6,7 @@ from utils import get_memory_state, is_locked
 from emotions import PLANT_BY_EMOTION
 from datetime import datetime, timezone
 import requests
-from api_client import delete_multiple_memories_via_api
+import api_client
 
 PLANT_EMOJIS = {
     "happy": "🌻", "romantic": "🌹", "sad": "🌿", "calm": "🌲",
@@ -46,9 +46,6 @@ def memory_card(m: Dict):
 
     media_path = m.get("media_path")
     if media_path:
-        # CORRECTED: Hum media_path ko seedhe use kar rahe hain
-        # Kyunki ab aapki server.py file full URL bhejegi
-        # Ab Streamlit ko file path nahi, balki URL milega.
         mt = m.get("media_type")
         if "image" in mt:
             st.image(media_path, use_container_width=True)
@@ -67,9 +64,6 @@ def memory_card(m: Dict):
         f"<div style='font-size:{size_map.get(state, 40)}px'>{emoji}</div>",
         unsafe_allow_html=True
     )
-# ui.py
-
-# ... (keep other imports and code)
 
 def garden_grid(memories: List[Dict], user_id: int, api_base: str, show_header: bool = True, columns: int = 4):
     if show_header:
@@ -80,7 +74,6 @@ def garden_grid(memories: List[Dict], user_id: int, api_base: str, show_header: 
         st.info("No memories yet. Plant your first memory from the sidebar.")
         return
 
-    # --- Confirmation Logic ---
     if 'selected_memories' in st.session_state and st.session_state.selected_memories:
         selected_count = len(st.session_state.selected_memories)
         st.warning(f"Are you sure you want to delete {selected_count} selected memories?")
@@ -89,18 +82,14 @@ def garden_grid(memories: List[Dict], user_id: int, api_base: str, show_header: 
 
         if col1.button("✔️ Confirm Delete", type="primary"):
             selected_ids = st.session_state.selected_memories
-            # CHANGE: Pass the user_id to the API call
-            delete_multiple_memories_via_api(user_id, selected_ids, api_base)
-            # CHANGE: Always clear selection and rerun to refresh the state
+            api_client.delete_multiple_memories_via_api(user_id, selected_ids, api_base)
             del st.session_state.selected_memories
             st.rerun()
 
         if col2.button("❌ Cancel"):
-            # CHANGE: Clear selection and rerun to exit confirmation mode
             del st.session_state.selected_memories
             st.rerun()
         
-        # Stop rendering the rest of the grid while in confirmation mode
         return
 
     # --- Selection Form ---

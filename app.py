@@ -4,14 +4,11 @@ import os
 from datetime import datetime
 import streamlit as st
 import requests 
+import api_client
 
 # Import the new API client function for creation
-from api_client import fetch_memories_from_api, create_memory_via_api
 
 from auth import ensure_db, signup, login, logout
-# These direct DB/storage calls will no longer be used in the form
-# from db import insert_memory 
-# from storage import save_upload_sync
 from emotions import classify
 from utils import iso_or_none
 import ui
@@ -98,7 +95,6 @@ with st.sidebar:
             file = st.file_uploader("Upload media (image/audio/video)", type=None)
             unlock_date = st.date_input("Unlock date (optional)", value=None)
             
-            # NEW: Explicit flower/model selection
             flower_options = {
                 "Alien Flower": "alien_flower_optimized.glb",
                 "Blue Flower": "blue_flower_optimized.glb",
@@ -120,7 +116,6 @@ with st.sidebar:
             if not title or not selected_flower_name:
                 st.error("Title and a chosen flower are required.")
             else:
-                # 1. Classify emotion from text
                 label, _ = classify(f"{title}\n{desc or ''}")
                 
                 # 2. Prepare data for the API call
@@ -145,7 +140,7 @@ with st.sidebar:
                     file_name = file.name
 
                 # 4. Call the API client function to create the memory
-                created = create_memory_via_api(
+                created = api_client.create_memory_via_api(
                     api_base=api_base,
                     memory_data=memory_data,
                     file=file_content,
@@ -176,7 +171,7 @@ else:
     
     # Ensure api_base is defined for fetching and deleting
     api_base = os.getenv("API_BASE_URL", "http://127.0.0.1:8000/api")
-    memories = fetch_memories_from_api(user["id"], api_base=api_base)
+    memories = api_client.fetch_memories_from_api(user["id"], api_base=api_base)
 
     if view == "Enhanced Garden":
         st.subheader("Your 3D Memory Garden")
