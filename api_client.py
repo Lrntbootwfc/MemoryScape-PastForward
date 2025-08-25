@@ -18,9 +18,6 @@ def fetch_memories_from_api(user_id: int, api_base: str):
         return []
 
 def create_memory_via_api(api_base: str, memory_data: Dict[str, Any], file: Optional[bytes] = None, filename: Optional[str] = None):
-    """
-    Creates a new memory by sending data and an optional file to the backend.
-    """
     files = {}
     if file and filename:
         files['file'] = (filename, file, 'application/octet-stream')
