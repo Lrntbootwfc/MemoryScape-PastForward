@@ -42,8 +42,11 @@ app.mount("/media", StaticFiles(directory=MEDIA_ROOT), name="media")
 def to_out(row: dict, request: Request) -> dict:
     if row.get("media_path"):
         # Use the full relative path from the database
-        row["media_path"] = str(request.base_url.replace(path=f"/media/{row['media_path']}"))
+        row["media_path"] = f"/media/{row['media_path']}"
+        # row["media_path"] = str(request.base_url.replace(path=f"/media/{row['media_path']}"))
     return row
+
+
 
 # ---------- API Models ----------
 class MemoryResponse(BaseModel):
