@@ -6,18 +6,16 @@ def run_migration():
     A one-time script to add new columns to the memories table.
     This is necessary to store media paths and flower model information.
     """
-    # Define the database path
-    # It's good practice to get this from an environment variable or config
-    # but we'll use a hardcoded path for simplicity based on your project structure.
-    db_path = os.getenv("DB_PATH", "memories.db")
+    # Define the database path for your local environment
+    DB_PATH = os.path.join("data", "memoryscape.db")
 
-    if not os.path.exists(db_path):
-        print(f"Database file not found at: {db_path}. Please run your main app first to create it.")
+    if not os.path.exists(DB_PATH):
+        print(f"Database file not found at: {DB_PATH}. Please run your main app first to create it.")
         return
 
     try:
         # Connect to the SQLite database
-        conn = sqlite3.connect(db_path)
+        conn = sqlite3.connect(DB_PATH)
         cursor = conn.cursor()
 
         # Check if the 'memories' table exists
