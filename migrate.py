@@ -1,62 +1,59 @@
-# backend/migrate.py
 import os
 import sqlite3
-import random
-import json
-from typing import List, Tuple, Optional
 
-DB_DIR = "data"
-DB_PATH = os.path.join(DB_DIR, "memoryscape.db")
+def run_migration():
+    """
+    A one-time script to add new columns to the memories table.
+    This is necessary to store media paths and flower model information.
+    """
+    # Define the database path
+    # It's good practice to get this from an environment variable or config
+    # but we'll use a hardcoded path for simplicity based on your project structure.
+    db_path = os.getenv("DB_PATH", "memories.db")
 
-def get_conn():
-    return sqlite3.connect(DB_PATH)
-
-def migrate_memories():
-    print("Starting database migration...")
-    
-    try:
-        with get_conn() as conn:
-            # Step 1: Add a new column for position if it doesn't exist
-            conn.execute("ALTER TABLE memories ADD COLUMN position TEXT;")
-            print("Added 'position' column to 'memories' table.")
-            conn.commit()
-    except sqlite3.OperationalError as e:
-        if "duplicate column name" in str(e):
-            print("Column 'position' already exists. Skipping migration.")
-            return
-        else:
-            print(f"An error occurred: {e}")
-            return
-    except Exception as e:
-        print(f"An unexpected error occurred: {e}")
+    if not os.path.exists(db_path):
+        print(f"Database file not found at: {db_path}. Please run your main app first to create it.")
         return
 
-    # Step 2: Get all memories that need a position
-    with get_conn() as conn:
-        cur = conn.execute("SELECT id FROM memories WHERE position IS NULL;")
-        memories_to_migrate = cur.fetchall()
+    try:
+        # Connect to the SQLite database
+        conn = sqlite3.connect(db_path)
+        cursor = conn.cursor()
 
-        if not memories_to_migrate:
-            print("No memories found that need a position. Migration finished.")
+        # Check if the 'memories' table exists
+        cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='memories'")
+        table_exists = cursor.fetchone()
+
+        if not table_exists:
+            print("Memories table does not exist. Please run your app to create it.")
+            conn.close()
             return
 
-        print(f"Found {len(memories_to_migrate)} memories to update.")
+        # Check if the 'media_path' column exists
+        cursor.execute("PRAGMA table_info(memories)")
+        columns = [info[1] for info in cursor.fetchall()]
 
-        # Step 3: Generate and save a random position for each memory
-        for memory_id_tuple in memories_to_migrate:
-            memory_id = memory_id_tuple[0]
-            # Generate a random position
-            position = [random.uniform(-20, 20), 0.0, random.uniform(-20, 20)]
-            # Convert the list to a JSON string for storage
-            position_json = json.dumps(position)
-            
-            conn.execute(
-                "UPDATE memories SET position = ? WHERE id = ?;",
-                (position_json, memory_id)
-            )
+        if 'media_path' not in columns:
+            print("Adding 'media_path' column...")
+            cursor.execute("ALTER TABLE memories ADD COLUMN media_path TEXT")
         
+        if 'media_type' not in columns:
+            print("Adding 'media_type' column...")
+            cursor.execute("ALTER TABLE memories ADD COLUMN media_type TEXT")
+
+        if 'model_path' not in columns:
+            print("Adding 'model_path' column...")
+            cursor.execute("ALTER TABLE memories ADD COLUMN model_path TEXT")
+
+        # Commit the changes
         conn.commit()
-        print("Successfully updated all memories with new positions.")
-        
+        print("Database migration complete. New columns added successfully.")
+
+    except sqlite3.Error as e:
+        print(f"An error occurred during migration: {e}")
+    finally:
+        if conn:
+            conn.close()
+
 if __name__ == "__main__":
-    migrate_memories()
+    run_migration()

@@ -39,13 +39,24 @@ app.add_middleware(
 os.makedirs(MEDIA_ROOT, exist_ok=True)
 app.mount("/media", StaticFiles(directory=MEDIA_ROOT), name="media")
 
-def to_out(row: dict, request: Request) -> dict:
-    if row.get("media_path"):
-        # Use the full relative path from the database
-        row["media_path"] = f"/media/{row['media_path']}"
-        # row["media_path"] = str(request.base_url.replace(path=f"/media/{row['media_path']}"))
-    return row
+# def to_out(row: dict, request: Request) -> dict:
+#     if row.get("media_path"):
+#         # Use the full relative path from the database
+#         row["media_path"] = f"/media/{row['media_path']}"
+#         # row["media_path"] = str(request.base_url.replace(path=f"/media/{row['media_path']}"))
+#     return row
 
+def to_out(row: dict, request: Request) -> dict:
+    media_path = row.get("media_path")
+# Only format the path if it's a non-empty string.
+    # This prevents issues with None or other falsey values.
+    if isinstance(media_path, str) and media_path:
+        row["media_path"] = f"/media/{media_path}"
+    else:
+# If no media path, set it to None to be handled correctly by the frontend
+        row["media_path"] = None
+
+    return row
 
 
 # ---------- API Models ----------

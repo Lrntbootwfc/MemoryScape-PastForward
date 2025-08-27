@@ -27,7 +27,7 @@ def counters(memories: List[Dict]):
     c2.metric("Blooms", blooms)
     c3.metric("Fruits", fruits)
 
-def memory_card(m: Dict):
+def memory_card(m, api_base):
     lock = is_locked(m.get("unlock_at"))
     state = get_memory_state(m)
 
@@ -47,12 +47,14 @@ def memory_card(m: Dict):
     media_path = m.get("media_path")
     if media_path:
         mt = m.get("media_type")
+        full_url = f"{api_base}{media_path}"
         if "image" in mt:
-            st.image(media_path, use_container_width=True)
+            
+            st.image(full_url, use_container_width=True)
         elif "audio" in mt:
-            st.audio(media_path)
+            st.audio(full_url)
         elif "video" in mt:
-            st.video(media_path)
+            st.video(full_url)
         elif mt == "text":
             st.warning("Cannot preview text files, but you can download it.")
 
@@ -106,7 +108,7 @@ def garden_grid(memories: List[Dict], user_id: int, api_base: str, show_header: 
                         if st.checkbox(f"Select #{m.get('id')}", key=f"checkbox_{m.get('id')}"):
                             selected_memories_in_form.append(m.get('id'))
                         with st.expander(f"{PLANT_EMOJIS.get(m.get('emotion'), '🌼')} {m.get('title', 'Untitled')}", expanded=False):
-                            memory_card(m)
+                            memory_card(m, api_base)
         
         # Submit button for the form
         delete_button_pressed = st.form_submit_button("Delete Selected Memories")

@@ -119,7 +119,7 @@ with st.sidebar:
                 label, _ = classify(f"{title}\n{desc or ''}")
                 
                 # 2. Prepare data for the API call
-                api_base = os.getenv("API_BASE_URL", "http://127.0.0.1:8000/api")
+                api_base = os.getenv("API_BASE_URL", "http://127.0.0.1:8000/")
                 memory_data = {
                     "user_id": user["id"],
                     "title": title,
@@ -200,6 +200,7 @@ else:
             recent_memories = memories[:3]
             for memory in recent_memories:
                 with st.expander(f"📝 {memory.get('title', 'Untitled')}", expanded=False):
-                    ui.memory_card(memory)
+                    # ui.memory_card(memory)
+                    ui.memory_card(memory, api_base)
         else:
             st.info("No memories yet. Plant your first memory from the sidebar! 🌱")
