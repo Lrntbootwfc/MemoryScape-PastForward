@@ -1,10 +1,10 @@
 # db.py
 
-import os, sqlite3
+import os, sqlite3,tempfile
 from datetime import datetime
 from typing import Optional, Tuple, List, Dict
 
-DB_DIR = "data"
+DB_DIR = os.path.join(tempfile.gettempdir(), "data")
 DB_PATH = os.path.join(DB_DIR, "memoryscape.db")
 
 def init_db():
