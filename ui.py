@@ -47,7 +47,8 @@ def memory_card(m, api_base):
     media_path = m.get("media_path")
     if media_path:
         mt = m.get("media_type")
-        full_url = f"{api_base}{media_path}"
+        full_url = f"{api_base.rstrip('/')}{media_path}"
+        # full_url = f"{api_base}{media_path}" if not api_base.endswith('/') else f"{api_base[:-1]}{media_path}"
         if "image" in mt:
             
             st.image(full_url, use_container_width=True)

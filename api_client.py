@@ -7,7 +7,7 @@ from typing import Optional, Dict, Any
 def fetch_memories_from_api(user_id: int, api_base: str):
     """Fetches memories from the FastAPI server."""
     try:
-        response = requests.get(f"{api_base}/memories", params={"user_id": user_id})
+        response = requests.get(f"{api_base.rstrip('/')}/api/memories", params={"user_id": user_id})
         if response.status_code == 200:
             return response.json()
         else:
@@ -24,8 +24,7 @@ def create_memory_via_api(api_base: str, memory_data: Dict[str, Any], file: Opti
 
     try:
         # We send form fields as 'data' and files as 'files'
-        response = requests.post(f"{api_base}/memories", data=memory_data, files=files)
-        
+        response = requests.post(f"{api_base.rstrip('/')}/api/memories", data=memory_data, files=files)
         if response.status_code == 201: # Created
             st.toast("Memory planted! 🌱")
             return response.json()

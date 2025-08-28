@@ -170,7 +170,7 @@ else:
     view = st.segmented_control("View", options=["Home", "Garden", "Enhanced Garden"])
     
     # Ensure api_base is defined for fetching and deleting
-    api_base = os.getenv("API_BASE_URL", "http://127.0.0.1:8000/api")
+    api_base = os.getenv("API_BASE_URL", "http://127.0.0.1:8000/")
     memories = api_client.fetch_memories_from_api(user["id"], api_base=api_base)
 
     if view == "Enhanced Garden":
