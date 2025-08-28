@@ -1,133 +1,112 @@
-# app.py
+Here is the content for a professional and comprehensive README file for your GitHub repository. It's written in Markdown, so you can copy and paste it directly.
 
-import os
-from datetime import datetime
-import streamlit as st
+-----
 
-from auth import ensure_db, signup, login, logout
-from db import list_memories, insert_memory # Note: insert_memory is no longer needed directly
-from storage import save_upload # Note: save_upload is no longer needed directly
-from emotions import classify # Note: classify is no longer needed directly
-from utils import iso_or_none, is_locked
-import ui
-from streamlit_cookies_manager import EncryptedCookieManager 
+# MemoryScape
 
-st.set_page_config(page_title="MemoryScape:", page_icon="🌻", layout="wide")
-ensure_db()
+## A 3D Garden for Your Digital Memories
 
-cookies = EncryptedCookieManager(
-    prefix="memscape_", 
-    password="super_secret_key_change_me"  
-)
+MemoryScape is a full-stack application that transforms your digital memories (photos and videos) into a beautiful, interactive 3D garden. The project allows users to bring their memories to life, giving them a tangible and emotionally engaging way to revisit their past.
 
-if not cookies.ready(): 
-    st.stop() 
+Every memory is represented as a unique flower in a serene, 3D environment. Users can navigate this garden and interact with the flowers to reveal a holographic display of the memory—a photo or video from that moment in time.
 
-if "user" not in st.session_state and cookies.get("logged_in") == "true": 
-    st.session_state.user = {
-        "id": cookies.get("user_id"),
-        "name": cookies.get("user_name"),
-        "email": cookies.get("user_email")
-    }
+## Key Features
 
-# --- Sidebar: Auth or Actions ---
-with st.sidebar:
-    st.title("MemoryScape 🌿")
-    if "user" not in st.session_state:
-        st.header("Login")
-        email = st.text_input("Email", key="login_email")
-        pwd = st.text_input("Password", type="password", key="login_pwd")
-        if st.button("Log in"):
-            user = login(email, pwd)
-            if user:
-                st.session_state.user = user
-                cookies["logged_in"] = "true"
-                cookies["user_id"] = str(user["id"])
-                cookies["user_name"] = user["name"]
-                cookies["user_email"] = user["email"]
-                cookies.save()
-                st.rerun()
+  * **Interactive 3D Environment:** An immersive and responsive 3D garden where memories are visualized as flowers.
+  * **Holographic Memory Display:** Clicking on a flower reveals a floating holographic screen to display the associated photo or video.
+  * **User-Friendly Dashboard:** A simple admin interface for creating, managing, and organizing your memories.
+  * **Scalable Backend:** A robust API to handle memory data and serve content to the frontend.
 
-        st.divider()
-        st.header("Create Account")
-        se = st.text_input("Email", key="signup_email")
-        sn = st.text_input("Name", key="signup_name")
-        sp = st.text_input("Password", type="password", key="signup_pwd")
-        if st.button("Sign up"):
-            if se and sn and sp:
-                if signup(se, sn, sp):
-                    st.success("Account created. Please log in.")
-            else:
-                st.error("Fill all fields.")
-    else:
-        user = st.session_state.user
-        st.markdown(f"**Logged in as:** {user['name']} ({user['email']})")
-        if st.button("Logout"):
-            logout()
-            cookies["logged_in"] = "false"  
-            cookies["user_id"] = ""  
-            cookies["user_name"] = "" 
-            cookies["user_email"] = ""  
-            cookies.save()  
-            st.session_state.clear()
-            st.rerun()
-        
-        # CHANGED: 'Plant a Memory' form has been removed from here. 
-        # It will be a React component now.
-        st.divider()
-        st.markdown("You can now plant a memory from the React frontend.")
+## Under the Hood
 
+The application is built using a modern and powerful technology stack.
 
-# --- Helper: Set Background for each view ---
-def set_background(view: str):
-    pass
+**Frontend:**
 
-# --- Main Area ---
-st.title("🌼 MemoryScape: PastForward Edition")
+  * **React:** For a component-based and efficient user interface.
+  * **Three.js / React-Three-Fiber:** To render and manage the immersive 3D scene.
 
-if "user" not in st.session_state:
-    st.info("Please log in or create an account from the sidebar.")
-else:
-    user = st.session_state.user
-    theme = st.segmented_control("Theme", options=["Default","Spring","Autumn","Night"], key="theme", help="Garden themes")
-    if theme == "Spring":
-        st.markdown("<style>.stApp { background: linear-gradient(180deg,#f0fff4,#ffffff); }</style>", unsafe_allow_html=True)
-    elif theme == "Autumn":
-        st.markdown("<style>.stApp { background: linear-gradient(180deg,#fff7ed,#ffffff); }</style>", unsafe_allow_html=True)
-    elif theme == "Night":
-        st.markdown("<style>.stApp { background: linear-gradient(180deg,#0f172a,#1f2937); color:#e5e7eb; }</style>", unsafe_allow_html=True)
+**Backend:**
 
-    view = st.segmented_control("View", options=["Home","Garden","Enhanced Garden","Galaxy"])
-    
-    memories = list_memories(user["id"])
+  * **FastAPI:** A high-performance Python web framework for a fast and reliable API.
 
-    if view == "Garden":
-        ui.garden_grid(memories, columns=4)
-    elif view == "Enhanced Garden":
-        from enhanced_garden_page import *
-    elif view == "Galaxy":
-        ui.counters(memories)
-        ui.galaxy_view(memories)
-    else: 
-        st.subheader("🏠 Welcome to Your Memory Garden")
-        st.markdown("""
-        This is your personal space for planting and nurturing memories. 
-        Choose a view from above to explore your memories in different ways:
-        
-        - **Home**: Your cozy space to start your journey
-        - **Garden**: A grid view of all your planted memories
-        - **Galaxy**: A 3D visualization of your memory universe
-        """)
-        ui.counters(memories)
-        
-        if memories:
-            st.subheader("🌱 Recent Memories")
-            recent_memories = memories[:3]  
-            for memory in recent_memories:
-                with st.expander(f"📝 {memory.get('title', 'Untitled')}", expanded=False):
-                    ui.memory_card(memory)
-        else:
-            st.info("No memories yet. Plant your first memory from the sidebar! 🌱")
-    
-    st.divider()
-    st.caption("💡 Tip: Emotion engine is rule-based by default. Set EMOTION_BACKEND=hf or openai in deployment to upgrade.")
+**Database:**
+
+  * **SQLite:** A lightweight, serverless database for persistent data storage.
+
+## Getting Started
+
+Follow these steps to get a copy of the project up and running on your local machine.
+
+### Prerequisites
+
+You will need the following installed on your machine:
+
+  * Python 3.x
+  * Node.js & npm (or yarn)
+
+### Installation
+
+1.  **Clone the repository:**
+
+    ```bash
+    git clone https://github.com/[Your_Username]/MemoryScape.git
+    cd MemoryScape
+    ```
+
+2.  **Set up the backend:**
+
+    ```bash
+    cd backend
+    pip install -r requirements.txt
+    ```
+
+3.  **Set up the frontend:**
+
+    ```bash
+    cd ../frontend
+    npm install
+    ```
+
+### Running the Application
+
+1.  **Start the backend server:**
+    Open a new terminal, navigate to the `backend` directory, and run:
+
+    ```bash
+    uvicorn main:app --reload
+    ```
+
+2.  **Start the frontend development server:**
+    Open another terminal, navigate to the `frontend` directory, and run:
+
+    ```bash
+    npm start
+    ```
+
+The application should now be running and accessible at `http://localhost:3000`.
+
+## Demo & Screenshots
+
+Explore the project in action:
+
+  * **Watch the Demo Video:** [Link to your YouTube, Vimeo, or a video file]
+  * **View Screenshots:** [Link to a folder or a carousel of images]
+
+## Contributing
+
+Contributions are what make the open-source community such an amazing place to learn, inspire, and create. Any contributions you make are **greatly appreciated**.
+
+1.  Fork the Project
+2.  Create your Feature Branch (`git checkout -b feature/AmazingFeature`)
+3.  Commit your Changes (`git commit -m 'Add some AmazingFeature'`)
+4.  Push to the Branch (`git push origin feature/AmazingFeature`)
+5.  Open a Pull Request
+
+## License
+
+Distributed under the MIT License. See `LICENSE.md` for more information.
+
+-----
+
+**Thank you for your interest in MemoryScape\!**
