@@ -72,7 +72,7 @@ You will need the following installed on your machine:
     Open a new terminal, navigate to the `backend` directory, and run:
 
     ```bash
-    uvicorn main:app --reload
+    uvicorn server:app --reload localhost 8000
     ```
 
 2.  **Start the frontend development server:**
@@ -82,14 +82,7 @@ You will need the following installed on your machine:
     npm start
     ```
 
-The application should now be running and accessible at `http://localhost:3000`.
-
-## Demo & Screenshots
-
-Explore the project in action:
-
-  * **Watch the Demo Video:** [Link to your YouTube, Vimeo, or a video file]
-  * **View Screenshots:** [Link to a folder or a carousel of images]
+The application should now be running and accessible at `http://localhost:8000`.
 
 ## Contributing
 
