@@ -1,6 +1,4 @@
-Here is the content for a professional and comprehensive README file for your GitHub repository. It's written in Markdown, so you can copy and paste it directly.
 
------
 
 # MemoryScape
 
